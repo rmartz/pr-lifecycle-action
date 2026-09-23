@@ -1,0 +1,79 @@
+version: 2
+
+# @rmartz/pr-lifecycle is an npm dependency published to GitHub Packages, so
+# Dependabot needs registry auth to see new CLI versions. Set a Dependabot secret
+# DEPENDABOT_PACKAGES_TOKEN (a classic PAT with `read:packages`) — ideally an
+# org-level Dependabot secret so every repo inherits it. Without it the npm job
+# 422s ("Secret Not Found") and silently stops opening ALL npm PRs.
+registries:
+  github-packages:
+    type: npm-registry
+    url: https://npm.pkg.github.com
+    token: ${{secrets.DEPENDABOT_PACKAGES_TOKEN}}
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      # Action bumps only touch this repo's own CI workflows, not the shipped
+      # composite Action, so they must not cut a release: `chore` → no release.
+      prefix: chore
+      include: scope
+    groups:
+      # Minor/patch bumps batched; majors fall out into isolated PRs for review.
+      github-actions:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: /
+    registries:
+      - github-packages
+    schedule:
+      interval: weekly
+    commit-message:
+      # Production deps ship inside the released Action, so their bump must cut a
+      # release: prefix `fix` (→ patch via semantic-release's conventionalcommits
+      # preset). This is only the *initial* title — the dependabot-release-type
+      # workflow rewrites it to mirror the CLI's semver bump (minor → feat(deps),
+      # major → feat(deps)! + breaking-change label) so the Action release matches.
+      # Dev deps never reach the shipped artifact, so `prefix-development: chore`
+      # keeps them release-less. (Codified in rmartz/ai#82.)
+      prefix: fix
+      prefix-development: chore
+      include: scope
+    groups:
+      # Prettier isolated so a reformatting bump can't hide in a catch-all.
+      prettier:
+        patterns:
+          - 'prettier'
+      dev-dependencies:
+        dependency-type: development
+        exclude-patterns:
+          - 'prettier'
+        update-types:
+          - minor
+          - patch
+      # @rmartz/pr-lifecycle is the only production dep; its patch/minor bump is
+      # what bot-automerge auto-merges and, titled `fix(deps)`, maps to a patch
+      # release, so the bump cuts a new action release. A major bump falls out to
+      # its own PR (not auto-merged) for a human to review.
+      production-dependencies:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # conventional-changelog-conventionalcommits@10 requires changelog-writer@9,
+      # but @semantic-release/release-notes-generator@14 ships writer@8, so a v10
+      # bump breaks the Release job — and that failure only surfaces post-merge (CI
+      # is green on the PR), making an automated major a latent release-breaker.
+      # Bump this preset's major by hand only when release-notes-generator moves to
+      # a writer@9 line; minor/patch (9.x) updates flow normally.
+      - dependency-name: 'conventional-changelog-conventionalcommits'
+        update-types: ['version-update:semver-major']

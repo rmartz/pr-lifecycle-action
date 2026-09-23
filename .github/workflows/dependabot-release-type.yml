@@ -1,0 +1,89 @@
+name: dependabot-release-type
+
+# Maps a Dependabot bump of the wrapped @rmartz/pr-lifecycle CLI to the Action
+# release type it should cut, by rewriting the PR title (and, for a major, adding a
+# label). Dependabot opens every production-dep bump as `fix(deps):`; this mirrors
+# the CLI's own semver bump into the Action's release type so the version history is
+# honest rather than flattening everything to a patch:
+#
+#   * patch  -> `fix(deps):`        (Action patch — left as opened)
+#   * minor  -> `feat(deps):`       (Action minor — new reconciler capability)
+#   * major  -> `feat(deps)!:` + `breaking change` label  (Action major)
+#
+# The load-bearing case is the **major**: a CLI major is the strongest signal of a
+# consumer-facing break, so flagging it as a breaking Action release stops a reviewer
+# from shipping it as a silent patch (see docs/design/versioning.md). The human
+# override is intact — a reviewer who confirms a CLI major changes nothing visible to
+# Action consumers removes the `!` and the label before merging. The minor/patch split
+# is changelog honesty, not a consumer gate (neither is breaking).
+#
+# Fires only on `opened`/`reopened` (never `synchronize`), so a later Dependabot
+# rebase does not re-apply a marker over a deliberate human downgrade. Editing a bot
+# PR needs base-context write, so — like bot-automerge.yml — this runs on
+# `pull_request_target` with `pull-requests: write`. Detection uses
+# dependabot/fetch-metadata's structured outputs (never title parsing), gated to the
+# npm ecosystem + the exact wrapped package, so a bump of any other dependency (a
+# github-actions or dev-dep) cannot false-positive.
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write # rewrite the PR title + add the label
+
+env:
+  # The one production dependency whose bump drives an Action release.
+  # (This is the per-repo value; repo-hygiene-action's is @rmartz/repo-hygiene.)
+  TARGET_DEP: '@rmartz/pr-lifecycle'
+
+jobs:
+  map:
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Map the CLI bump type to the Action release type
+        if: >-
+          steps.meta.outputs.package-ecosystem == 'npm' &&
+          contains(steps.meta.outputs.dependency-names, env.TARGET_DEP)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+        run: |
+          set -euo pipefail
+          case "$UPDATE_TYPE" in
+            version-update:semver-major)
+              # Breaking Action release: feat(deps)!: + label.
+              case "$TITLE" in *'!:'*) echo "already flagged breaking; nothing to do"; exit 0;; esac
+              case "$TITLE" in fix*) base="${TITLE#fix}";; feat*) base="${TITLE#feat}";; *) echo "unexpected title '$TITLE'; skipping"; exit 0;; esac
+              new_title="feat${base/: /!: }"
+              printf '%s\n' \
+                'Auto-flagged as a **major** (breaking) Action release: this PR bumps the wrapped `@rmartz/pr-lifecycle` CLI across a major version.' \
+                '' \
+                'A CLI major is the strongest signal of consumer-facing breakage, so per the [versioning policy](https://github.com/rmartz/pr-lifecycle-action/blob/main/docs/design/versioning.md) the Action release defaults to a **major**. I set the title to `feat(deps)!:` and added the `breaking change` label so the squash-merge cuts a major.' \
+                '' \
+                'If you confirm this CLI major changes nothing visible to Action consumers, remove the `!` from the title and the `breaking change` label before merging to cut a patch instead — and note that reasoning here.' \
+                '' \
+                '---' \
+                '*Posted automatically by the dependabot-release-type workflow*' > "$RUNNER_TEMP/comment.md"
+              gh pr edit "$PR" --title "$new_title" --add-label "breaking change"
+              gh pr comment "$PR" --body-file "$RUNNER_TEMP/comment.md"
+              ;;
+            version-update:semver-minor)
+              # Minor Action release: feat(deps): (a new reconciler capability).
+              case "$TITLE" in feat*) echo "already feat; nothing to do"; exit 0;; esac
+              case "$TITLE" in fix*) : ;; *) echo "unexpected title '$TITLE'; skipping"; exit 0;; esac
+              gh pr edit "$PR" --title "feat${TITLE#fix}"
+              ;;
+            *)
+              # Patch (or unknown): leave as fix(deps): — a patch Action release.
+              echo "patch bump; leaving title '$TITLE' as-is"
+              ;;
+          esac

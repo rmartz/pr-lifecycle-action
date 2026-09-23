@@ -1,0 +1,41 @@
+# @rmartz/repo-hygiene check configuration for this repo.
+#
+# This repo consumes @rmartz/repo-hygiene through the standard composite-Action
+# caller (.github/workflows/repo-hygiene.yml), which runs the explicit check list
+# there against our own tree. Each section under `checks` is read by the check of
+# that name; `severity` (when set) overrides that check's default findings.
+#
+# docs/ is an OKF bundle with a nested index (docs/design/) — see
+# docs/okf-format.md — so we enforce okf / okf-index / md-pairing at `error`
+# rather than the fleet-wide warn default.
+checks:
+  # Intra-repo Markdown link integrity + anchor validation for docs pages.
+  docs-links:
+    roots: [docs]
+    anchors: true
+
+  # OKF docs-frontmatter conformance. This repo's pages are concept/guide/design
+  # pages, so it uses a small curated vocabulary and exempts every type from the
+  # `resource` requirement (there is no first-party source tree to bind to).
+  okf:
+    severity: error
+    types: [Reference, Guidance, Design]
+    resourceExemptTypes: [Reference, Guidance, Design]
+
+  # Docs-bundle navigability, including the nested-index rule (docs/index.md may
+  # only reach docs/design/index.md, which in turn links its own pages).
+  okf-index:
+    severity: error
+
+  # AGENTS.md / CLAUDE.md must travel together; each CLAUDE.md is a bare wrapper.
+  md-pairing:
+    severity: error
+    wrapper: '@AGENTS.md'
+
+  # Per-glob size caps, dogfooded against our own docs. Caps sit comfortably above
+  # current sizes so the check exercises its evaluate path without flagging.
+  file-caps:
+    overrides:
+      - glob: 'docs/**/*.md'
+        lines: { warn: 400, error: 600 }
+        bytes: { warn: 24KB, error: 40KB }

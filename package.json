@@ -1,0 +1,38 @@
+{
+  "name": "@rmartz/pr-lifecycle-action",
+  "version": "0.0.0-development",
+  "private": true,
+  "description": "Composite GitHub Action that runs the @rmartz/pr-lifecycle reconciler in a consuming repo, kept current by Dependabot.",
+  "keywords": [
+    "ci",
+    "pr-lifecycle",
+    "pull-request",
+    "auto-merge",
+    "github-actions",
+    "composite-action"
+  ],
+  "homepage": "https://github.com/rmartz/pr-lifecycle-action#readme",
+  "bugs": {
+    "url": "https://github.com/rmartz/pr-lifecycle-action/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rmartz/pr-lifecycle-action.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/github": "^12.0.9",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
+    "prettier": "^3.9.8",
+    "semantic-release": "^25.0.9"
+  }
+}

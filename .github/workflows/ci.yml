@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Per-ref concurrency: a new push to a branch cancels its in-flight run, but main
+# is never cancelled (each push to the default branch runs to completion).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      packages: read # npm ci resolves the @rmartz/pr-lifecycle production dep (once pinned)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm run format:check
+
+  release-dry-run:
+    name: Release dry-run
+    # Validate the semantic-release config — above all that the changelog toolchain
+    # (preset + conventional-changelog-writer) still renders — on PRs, so a broken
+    # release config is caught here rather than on the post-merge Release run (which
+    # only fires on push to main; see release.yml). This is the general defense for
+    # the latent-release-breaker class .github/dependabot.yml calls out: a toolchain
+    # bump that is green on the PR but breaks the real release. Because this repo
+    # auto-merges its own Dependabot bumps, such a bump would otherwise merge
+    # unreviewed and silently stall the release chain that ships CLI updates.
+    #
+    # A plain `semantic-release --dry-run` early-exits on a non-main branch before
+    # rendering notes, which would pass a broken config. We override --branches with
+    # the PR head ref (which exists on the remote, so semantic-release accepts it as
+    # a release branch) to force the analyzeCommits + generateNotes path; --dry-run
+    # guarantees nothing is published, tagged, or commented. Restricted to same-repo
+    # PRs because a fork's head branch does not exist on this remote.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read # npm ci resolves the @rmartz/pr-lifecycle production dep (once pinned)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # semantic-release needs full history + tags
+          persist-credentials: false # authenticates via GITHUB_TOKEN below
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npx semantic-release --dry-run --branches "$HEAD_REF"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
