@@ -14,9 +14,9 @@ up. (The first half starts working once the CLI is pinned; see the
 
 ## Producing a release (this repo)
 
-1. **CLI bump.** `@rmartz/pr-lifecycle` publishes a new version to GitHub Packages.
-   Dependabot's npm ecosystem (with the `github-packages` registry auth wired in
-   [`dependabot.yml`](../../.github/dependabot.yml)) opens a PR bumping the pinned
+1. **CLI bump.** `@rmartz/pr-lifecycle` publishes a new version to npmjs.
+   Dependabot's npm ecosystem ([`dependabot.yml`](../../.github/dependabot.yml), no
+   registry auth needed) opens a PR bumping the pinned
    dependency + lockfile, titled `fix(deps): bump @rmartz/pr-lifecycle …`.
 2. **Map the release type.** The
    [`dependabot-release-type`](../../.github/workflows/dependabot-release-type.yml)
