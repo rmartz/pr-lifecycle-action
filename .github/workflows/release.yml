@@ -33,7 +33,6 @@ jobs:
       contents: write # create tags + GitHub Releases
       issues: write # semantic-release/github housekeeping
       pull-requests: write
-      packages: read # npm ci resolves the @rmartz/pr-lifecycle production dep (once pinned)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,8 +41,6 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm ci
       - name: Release
         env:
