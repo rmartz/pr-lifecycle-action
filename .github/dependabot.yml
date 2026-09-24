@@ -35,7 +35,11 @@ updates:
     registries:
       - github-packages
     schedule:
-      interval: weekly
+      # Daily, not weekly: each @rmartz/pr-lifecycle release reaches consumers only
+      # after this repo bumps its pin and re-releases, and consumers' own weekly
+      # Dependabot then picks up the new action tag. Two stacked weekly schedules
+      # could delay a CLI fix by up to ~2 weeks; daily collapses this hop to ≤1 day.
+      interval: daily
     commit-message:
       # Production deps ship inside the released Action, so their bump must cut a
       # release: prefix `fix` (→ patch via semantic-release's conventionalcommits
