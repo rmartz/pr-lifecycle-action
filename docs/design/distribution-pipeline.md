@@ -9,8 +9,7 @@ tags: [design, releases, dependabot]
 
 New versions of the reconciler reach consumers with no manual step at any hop. The
 chain has two halves: producing a new Action release here, and consumers picking it
-up. (The first half starts working once the CLI is pinned; see the
-[overview](../overview.md) for status.)
+up.
 
 ## Producing a release (this repo)
 

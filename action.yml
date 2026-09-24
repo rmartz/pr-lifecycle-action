@@ -1,0 +1,156 @@
+name: 'pr-lifecycle'
+description: "Reconcile a PR's lifecycle labels and GitHub-native auto-merge via the pinned @rmartz/pr-lifecycle CLI."
+author: 'rmartz'
+
+branding:
+  icon: 'git-pull-request'
+  color: 'blue'
+
+# A composite action that wraps `ai-pr-lifecycle reconcile` from the
+# @rmartz/pr-lifecycle CLI. The CLI owns every decision (lifecycle state, labels,
+# bot eligibility, fork trust, whether to arm or merge); this action only installs
+# the version pinned in its own package-lock.json, works out which PR(s) the event
+# is about, and invokes the CLI on each (scripts/reconcile.sh). The contract is
+# documented in docs/design/integration-contract.md; the caller snippet, required
+# permissions, and triggers are in docs/consuming.md.
+#
+# NOTE: input descriptions must not contain a template expression: an action
+# manifest validates expressions in input metadata against a context where github
+# is unavailable, so one there fails the action load.
+
+inputs:
+  pr:
+    description: >-
+      Number of the PR to reconcile. Empty (the default) resolves it from the
+      triggering event: the pull_request payload, a workflow_dispatch `pr`
+      input, or the PRs of a check_suite / workflow_run (looked up by head SHA
+      when GitHub omits them, as it does for fork PRs). See docs/consuming.md.
+    required: false
+    default: ''
+  github-token:
+    description: >-
+      Token for every read and every label, review-request, and comment write:
+      the CLI's GITHUB_TOKEN. Defaults to the workflow token, whose job needs
+      pull-requests:write, contents:read, checks:read and statuses:read.
+    required: false
+    default: ${{ github.token }}
+  token:
+    description: >-
+      Real-actor token (a fine-grained PAT, conventionally the
+      PR_LIFECYCLE_TOKEN secret) used only to arm and merge, so the merge
+      re-triggers the consumer's on:push workflows. Exported as the CLI's
+      PR_LIFECYCLE_TOKEN. When empty, the CLI skips arming and merging (never
+      falling back to github-token) and reports it in auto-merge-skipped.
+    required: false
+    default: ''
+  arm-auto-merge:
+    description: 'Arm, merge, or disarm GitHub-native auto-merge from the lifecycle state (true | false).'
+    required: false
+    default: 'false'
+  trusted-authors:
+    description: >-
+      Comma-separated logins to narrow trust to; they still need write access.
+      Empty (the default) leaves the CLI's own policy in place — write-access
+      collaborators only. There is deliberately no way to trust anyone.
+    required: false
+    default: ''
+  skip-copilot-review:
+    description: 'Do not wait for a Copilot review (true | false).'
+    required: false
+    default: 'false'
+  hold-checks:
+    description: >-
+      Comma-separated required checks whose pending state is a human hold rather
+      than a running build. Empty (the default) keeps the CLI default.
+    required: false
+    default: ''
+  ignore-checks:
+    description: >-
+      Comma-separated required checks the CI gate never counts. Empty (the
+      default) keeps the CLI default.
+    required: false
+    default: ''
+  token-advisory:
+    description: >-
+      Post a one-time advisory comment on the PR when arming or merging is
+      skipped because token is empty (true | false).
+    required: false
+    default: 'true'
+  dry-run:
+    description: 'Gather facts and plan, but write nothing (true | false).'
+    required: false
+    default: 'false'
+  node-version:
+    description: 'Node.js version to run the CLI under.'
+    required: false
+    default: '22'
+
+outputs:
+  results:
+    description: "JSON array of the CLI's --json result for every PR reconciled ([] when the event names no open PR)."
+    value: ${{ steps.reconcile.outputs.results }}
+  # The per-field outputs below describe a single PR: they are set only when
+  # exactly one PR was reconciled, and are empty otherwise.
+  result:
+    description: "The CLI's full --json result object, compact."
+    value: ${{ steps.reconcile.outputs.result }}
+  schema-version:
+    description: "The result's schemaVersion. Always 1: the action fails on any other value."
+    value: ${{ steps.reconcile.outputs.schema-version }}
+  state:
+    description: "The PR's lifecycle state (e.g. approved, awaiting-ci). Treat unknown values as non-terminal."
+    value: ${{ steps.reconcile.outputs.state }}
+  add-labels:
+    description: 'JSON array of labels added.'
+    value: ${{ steps.reconcile.outputs.add-labels }}
+  remove-labels:
+    description: 'JSON array of labels removed.'
+    value: ${{ steps.reconcile.outputs.remove-labels }}
+  auto-merge:
+    description: 'What was done to auto-merge: arm, merge, disarm, or none.'
+    value: ${{ steps.reconcile.outputs.auto-merge }}
+  auto-merge-skipped:
+    description: 'JSON object { action, reason } when an arm or merge was skipped, else empty.'
+    value: ${{ steps.reconcile.outputs.auto-merge-skipped }}
+  bot-eligible:
+    description: 'Whether the PR is an eligible bot PR (true | false).'
+    value: ${{ steps.reconcile.outputs.bot-eligible }}
+  bot-eligibility:
+    description: 'JSON object { eligible, reason, prType, updateType }.'
+    value: ${{ steps.reconcile.outputs.bot-eligibility }}
+  carry-over:
+    description: 'JSON object { cleanAncestors, stoppedBecause } for approval carry-over, or empty when it did not run.'
+    value: ${{ steps.reconcile.outputs.carry-over }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+    # Install the pinned CLI into this action's own directory — $GITHUB_ACTION_PATH
+    # holds this action's package.json, lockfile, and .npmrc (which pins the
+    # @rmartz scope to npmjs) — not the consumer workspace. The package is public
+    # on npmjs, so the install needs no token. Dev dependencies (the release
+    # toolchain) are not needed to run the CLI, and it has no install scripts.
+    - name: Install pinned @rmartz/pr-lifecycle
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+    - name: Reconcile
+      id: reconcile
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_LIFECYCLE_TOKEN: ${{ inputs.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr }}
+        ARM_AUTO_MERGE: ${{ inputs.arm-auto-merge }}
+        TRUSTED_AUTHORS: ${{ inputs.trusted-authors }}
+        SKIP_COPILOT_REVIEW: ${{ inputs.skip-copilot-review }}
+        HOLD_CHECKS: ${{ inputs.hold-checks }}
+        IGNORE_CHECKS: ${{ inputs.ignore-checks }}
+        TOKEN_ADVISORY: ${{ inputs.token-advisory }}
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: bash "${GITHUB_ACTION_PATH}/scripts/reconcile.sh"
