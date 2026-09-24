@@ -1,15 +1,7 @@
 version: 2
 
-# @rmartz/pr-lifecycle is an npm dependency published to GitHub Packages, so
-# Dependabot needs registry auth to see new CLI versions. Set a Dependabot secret
-# DEPENDABOT_PACKAGES_TOKEN (a classic PAT with `read:packages`) — ideally an
-# org-level Dependabot secret so every repo inherits it. Without it the npm job
-# 422s ("Secret Not Found") and silently stops opening ALL npm PRs.
-registries:
-  github-packages:
-    type: npm-registry
-    url: https://npm.pkg.github.com
-    token: ${{secrets.DEPENDABOT_PACKAGES_TOKEN}}
+# @rmartz/pr-lifecycle is public on npmjs, so Dependabot needs no registry block or
+# DEPENDABOT_PACKAGES_TOKEN secret to see new CLI versions.
 
 updates:
   - package-ecosystem: github-actions
@@ -32,8 +24,6 @@ updates:
 
   - package-ecosystem: npm
     directory: /
-    registries:
-      - github-packages
     schedule:
       # Daily, not weekly: each @rmartz/pr-lifecycle release reaches consumers only
       # after this repo bumps its pin and re-releases, and consumers' own weekly
