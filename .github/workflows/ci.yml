@@ -32,6 +32,21 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm run format:check
 
+  test:
+    name: Test
+    # Hermetic tests of the action's reconcile step (scripts/reconcile.sh) against a
+    # stub CLI. node:test is built in and jq ships on the runner, so no install.
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm test
+
   release-dry-run:
     name: Release dry-run
     # Validate the semantic-release config — above all that the changelog toolchain

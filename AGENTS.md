@@ -2,16 +2,16 @@
 
 This repo is the **composite GitHub Action** that runs the
 [`@rmartz/pr-lifecycle`](https://github.com/rmartz/pr-lifecycle) reconciler in a
-consuming repo. It will hold the CLI as a pinned `package.json` dependency, wrap it
-in `action.yml`, and re-release itself via semantic-release whenever Dependabot bumps
+consuming repo. It holds the CLI as a pinned `package.json` dependency, wraps it
+in `action.yml`, and re-releases itself via semantic-release whenever Dependabot bumps
 that pin — the chain that ships new reconciler logic to the fleet. It is modelled on
 [`bot-automerge-action`](https://github.com/rmartz/bot-automerge-action) and
 [`repo-hygiene-action`](https://github.com/rmartz/repo-hygiene-action). See
 [README.md](README.md) and the [documentation](docs/index.md).
 
-> **Status: scaffold.** Repo infrastructure only. `action.yml` and the CLI pin wait
-> for the first published `@rmartz/pr-lifecycle` release
-> ([rmartz/pr-lifecycle#6](https://github.com/rmartz/pr-lifecycle/issues/6)).
+The action is [`action.yml`](action.yml); its reconcile step is
+[`scripts/reconcile.sh`](scripts/reconcile.sh). See
+[the integration contract](docs/design/integration-contract.md).
 
 ## Division of responsibility with `rmartz/pr-lifecycle`
 
@@ -58,9 +58,12 @@ bumped by Dependabot; CI, PR-title lint, the `commit-convention` tripwire, label
 npm ci                 # install deps (all from npmjs, no auth needed)
 npm run format:check   # prettier --check .
 npm run format         # prettier --write .
+npm test               # node --test: hermetic tests of scripts/reconcile.sh
 ```
 
-There is no build/test suite — the reconciler logic lives in `@rmartz/pr-lifecycle`.
+There is no build step. The reconciler logic lives in `@rmartz/pr-lifecycle`; the
+tests here cover only the wrapper (input mapping, PR resolution, outputs), against a
+stub CLI. Keep `scripts/reconcile.sh` bash 3 compatible so they run on macOS.
 
 ## Releases
 

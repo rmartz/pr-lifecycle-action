@@ -7,11 +7,21 @@ from its current facts and, when the PR reaches `approved`, arms GitHub-native
 auto-merge. The consumer's branch ruleset (required checks) still decides when the
 merge lands.
 
-> **Status: scaffold.** The repo infrastructure (CI, release pipeline, Dependabot,
-> docs) is in place. `action.yml` lands once `@rmartz/pr-lifecycle` publishes its
-> first release — tracked by
-> [rmartz/pr-lifecycle#6](https://github.com/rmartz/pr-lifecycle/issues/6). Do not
-> reference this action from a consumer yet.
+> **Status: early.** The action pins `@rmartz/pr-lifecycle` 5.0.0. Use it for
+> labelling now; hold off on `arm-auto-merge` until
+> [rmartz/pr-lifecycle#40](https://github.com/rmartz/pr-lifecycle/issues/40) ships.
+> See [Consuming the action](docs/consuming.md) for the caller workflow.
+
+## Usage
+
+```yaml
+- uses: rmartz/pr-lifecycle-action@<sha> # vX.Y.Z
+  with:
+    token: ${{ secrets.PR_LIFECYCLE_TOKEN }} # real-actor token, used only to arm/merge
+```
+
+The full caller — triggers, permissions, concurrency — plus every input and output
+is in [docs/consuming.md](docs/consuming.md).
 
 ## How versions flow
 
