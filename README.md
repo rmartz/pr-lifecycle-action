@@ -7,10 +7,9 @@ from its current facts and, when the PR reaches `approved`, arms GitHub-native
 auto-merge. The consumer's branch ruleset (required checks) still decides when the
 merge lands.
 
-> **Status: early.** The action pins `@rmartz/pr-lifecycle` 5.0.0. Use it for
-> labelling now; hold off on `arm-auto-merge` until
-> [rmartz/pr-lifecycle#40](https://github.com/rmartz/pr-lifecycle/issues/40) ships.
-> See [Consuming the action](docs/consuming.md) for the caller workflow.
+> **Status: early.** The action pins `@rmartz/pr-lifecycle` 8.0.0. See
+> [Consuming the action](docs/consuming.md) for the caller workflow and the checks
+> to make before turning on `arm-auto-merge`.
 
 ## Usage
 

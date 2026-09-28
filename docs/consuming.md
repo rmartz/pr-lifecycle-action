@@ -73,7 +73,6 @@ jobs:
       - uses: rmartz/pr-lifecycle-action@<sha> # vX.Y.Z
         with:
           token: ${{ secrets.PR_LIFECYCLE_TOKEN }}
-          skip-copilot-review: true
 ```
 
 Pin the action by full commit SHA and let Dependabot's `github-actions` ecosystem
@@ -100,19 +99,20 @@ calling the CLI. Set `pr` explicitly only to override this.
 
 ## Inputs
 
-| Input                 | Default         | Meaning                                                                                                                                    |
-| --------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pr`                  | _(event)_       | PR number to reconcile; see above.                                                                                                         |
-| `github-token`        | `github.token`  | The CLI's `GITHUB_TOKEN`: every read and every label, review-request, and comment write.                                                   |
-| `token`               | _(empty)_       | Real-actor token, exported as `PR_LIFECYCLE_TOKEN`, used **only** to arm and merge. See [the token](#the-real-actor-token).                |
-| `arm-auto-merge`      | `false`         | Arm, merge, or disarm auto-merge from the lifecycle state (`--arm-auto-merge`).                                                            |
-| `trusted-authors`     | _(empty)_       | Comma-separated logins to narrow trust to (`--trusted-authors`). Empty keeps the CLI policy: verdicts from write-access users, never bots. |
-| `skip-copilot-review` | `false`         | Don't wait for a Copilot review (`--skip-copilot-review`).                                                                                 |
-| `hold-checks`         | _(CLI default)_ | Required checks whose _pending_ is a human hold (`--hold-checks`; the CLI defaults to `pr-policy`).                                        |
-| `ignore-checks`       | _(CLI default)_ | Required checks the CI gate never counts (`--ignore-checks`; the CLI defaults to `merge-safety`).                                          |
-| `token-advisory`      | `true`          | Post a one-time advisory comment when an arm or merge is skipped for want of `token`; `false` passes `--no-token-advisory`.                |
-| `dry-run`             | `false`         | Gather and plan, but write nothing (`--dry-run`).                                                                                          |
-| `node-version`        | `22`            | Node.js version to run the CLI under.                                                                                                      |
+| Input                 | Default         | Meaning                                                                                                                                                     |
+| --------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pr`                  | _(event)_       | PR number to reconcile; see above.                                                                                                                          |
+| `github-token`        | `github.token`  | The CLI's `GITHUB_TOKEN`: every read and every label, review-request, and comment write.                                                                    |
+| `token`               | _(empty)_       | Real-actor token, exported as `PR_LIFECYCLE_TOKEN`, used **only** to arm, merge, and update branches. See [the token](#the-real-actor-token).               |
+| `arm-auto-merge`      | `false`         | Arm, merge, or disarm auto-merge from the lifecycle state (`--arm-auto-merge`).                                                                             |
+| `auto-update`         | `false`         | Bring an approved PR that merge-safety labels `update required` up to date with its base; a Dependabot PR is asked to rebase instead (`--auto-update`).     |
+| `trusted-authors`     | _(empty)_       | Comma-separated logins to narrow trust to (`--trusted-authors`). Empty keeps the CLI policy: verdicts from write-access users, never bots.                  |
+| `skip-copilot-review` | `false`         | **Deprecated.** Don't wait for requested bot reviewers (`--skip-copilot-review`). The CLI now waits only while a bot review request is pending, so drop it. |
+| `hold-checks`         | _(CLI default)_ | Required checks whose _pending_ is a human hold (`--hold-checks`; the CLI defaults to `pr-policy`).                                                         |
+| `ignore-checks`       | _(CLI default)_ | Required checks the CI gate never counts (`--ignore-checks`; the CLI defaults to `merge-safety`).                                                           |
+| `token-advisory`      | `true`          | Post a one-time advisory comment when an arm or merge is skipped for want of `token`; `false` passes `--no-token-advisory`.                                 |
+| `dry-run`             | `false`         | Gather and plan, but write nothing (`--dry-run`).                                                                                                           |
+| `node-version`        | `22`            | Node.js version to run the CLI under.                                                                                                                       |
 
 Boolean inputs must be exactly `true` or `false`; anything else fails the run. The
 list inputs are passed only when non-empty, so an empty value keeps the CLI
@@ -120,19 +120,21 @@ default. There is deliberately no way to make `trusted-authors` trust everyone.
 
 ## Outputs
 
-| Output               | Value                                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| `results`            | JSON array of the CLI's result for every PR reconciled (`[]` when none).                           |
-| `result`             | The full result object as compact JSON.                                                            |
-| `schema-version`     | Always `1`: the action fails on any other `schemaVersion`.                                         |
-| `state`              | The lifecycle state (e.g. `approved`, `awaiting-ci`). Treat values you don't know as non-terminal. |
-| `add-labels`         | JSON array of labels added.                                                                        |
-| `remove-labels`      | JSON array of labels removed.                                                                      |
-| `auto-merge`         | `arm`, `merge`, `disarm`, or `none`.                                                               |
-| `auto-merge-skipped` | JSON `{ "action": "arm" \| "merge", "reason": "token-missing" }`, or empty.                        |
-| `bot-eligible`       | `true` or `false`.                                                                                 |
-| `bot-eligibility`    | JSON `{ eligible, reason, prType, updateType }`.                                                   |
-| `carry-over`         | JSON `{ cleanAncestors, stoppedBecause }` for approval carry-over, or empty when it didn't run.    |
+| Output               | Value                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `results`            | JSON array of the CLI's result for every PR reconciled (`[]` when none).                                                  |
+| `result`             | The full result object as compact JSON.                                                                                   |
+| `schema-version`     | Always `1`: the action fails on any other `schemaVersion`.                                                                |
+| `state`              | The lifecycle state (e.g. `approved`, `awaiting-ci`, `awaiting-bot-review`). Treat values you don't know as non-terminal. |
+| `add-labels`         | JSON array of labels added.                                                                                               |
+| `remove-labels`      | JSON array of labels removed.                                                                                             |
+| `auto-merge`         | `arm`, `merge`, `disarm`, or `none`.                                                                                      |
+| `auto-merge-skipped` | JSON `{ "action": "arm" \| "merge", "reason": "token-missing" }`, or empty.                                               |
+| `bot-eligible`       | `true` or `false`.                                                                                                        |
+| `bot-eligibility`    | JSON `{ eligible, reason, prType, updateType }`.                                                                          |
+| `carry-over`         | JSON `{ cleanAncestors, stoppedBecause }` for approval carry-over, or empty when it didn't run.                           |
+| `update`             | The branch update performed: `update-branch`, `dependabot-rebase`, or `none`.                                             |
+| `update-skipped`     | JSON `{ "action": "update-branch" \| "dependabot-rebase", "reason": "token-missing" }`, or empty.                         |
 
 Every output but `results` describes a single PR, so it is set only when exactly
 one PR was reconciled. The field meanings are the CLI's; see its
@@ -142,8 +144,8 @@ one PR was reconciled. The field meanings are the CLI's; see its
 
 A merge made with `GITHUB_TOKEN` — including one GitHub performs because
 `GITHUB_TOKEN` armed auto-merge — triggers no `on: push` workflows, so your release
-pipeline would never run. The CLI therefore arms and merges only with the `token`
-input, and never falls back to `github-token`:
+pipeline would never run. The CLI therefore arms, merges, and updates branches only
+with the `token` input, and never falls back to `github-token`:
 
 - **What it is:** a fine-grained PAT with **Contents: read and write** and **Pull
   requests: read and write** on the repository (a GitHub App installation token
@@ -151,11 +153,12 @@ input, and never falls back to `github-token`:
 - **Where to store it:** as the `PR_LIFECYCLE_TOKEN` **Actions** secret, and also as
   a **Dependabot** secret if bot PRs should auto-merge — a run Dependabot triggers
   sees only Dependabot secrets.
-- **When it's missing:** the run still succeeds and labels converge, but the arm or
-  merge is skipped. The job log shows a warning, `auto-merge-skipped` is set, and
-  the CLI posts one advisory comment on the PR (unless `token-advisory: false`).
+- **When it's missing:** the run still succeeds and labels converge, but the arm,
+  merge, or branch update is skipped. The job log shows a warning,
+  `auto-merge-skipped` or `update-skipped` is set, and the CLI posts one advisory
+  comment on the PR (unless `token-advisory: false`).
 
-Because the token only arms and merges, the workflow `GITHUB_TOKEN` never needs
+Because the token only arms, merges, and updates branches, the workflow `GITHUB_TOKEN` never needs
 `contents: write`.
 
 ## Before you arm auto-merge
@@ -165,15 +168,18 @@ on:
 
 - **Required checks must be in place.** Auto-merge lands the moment the branch
   ruleset's required checks pass; with no required checks it merges immediately.
-- **Wait for [rmartz/pr-lifecycle#40](https://github.com/rmartz/pr-lifecycle/issues/40).**
-  In CLI 5.0.0 the `autorelease: pending` label alone marks a same-repo PR as a
-  release-please PR, so a user who can only label could route a write user's
-  unreviewed PR into auto-approval. Labelling mode is unaffected.
+- **Use a 7.0.0+ CLI (any current action release).** From CLI 7.0.0
+  ([rmartz/pr-lifecycle#41](https://github.com/rmartz/pr-lifecycle/pull/41)) a
+  release-please PR is identified by its branch and a release-only diff; the
+  `autorelease: pending` label no longer counts, so labelling alone can't route a
+  PR into auto-approval.
 - **Fork PRs** are never bot-eligible, but a fork PR _is_ armed once a trusted
   write-access user approves its current head — the same human approval as any
   PR.
 
-`skip-copilot-review: true` is recommended for now: Copilot's out-of-quota notice
-no longer reaches the API
-([rmartz/pr-lifecycle#36](https://github.com/rmartz/pr-lifecycle/issues/36)), so
-without it a PR with no verdict can sit in `awaiting-copilot`.
+A PR waits in `awaiting-bot-review` only while a bot reviewer's review request is
+pending (CLI 8.0.0,
+[rmartz/pr-lifecycle#43](https://github.com/rmartz/pr-lifecycle/pull/43)), so it no
+longer hangs on Dependabot PRs, repos without Copilot, or an out-of-quota Copilot.
+The state was named `awaiting-copilot` before 8.0.0; update anything that matches
+on the old name.
