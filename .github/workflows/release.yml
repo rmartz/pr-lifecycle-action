@@ -1,10 +1,14 @@
 name: Release
 
-# Automated releases via semantic-release. On every push to main it analyzes the
+# Automated releases via the fleet's shared semantic-release workflow
+# (rmartz/semantic-release-ci). On every push to main it analyzes the
 # Conventional-Commit history and, when a release is warranted, creates the git tag
 # + GitHub Release. It publishes NOTHING to a package registry and commits NOTHING
 # back to the repo (no @semantic-release/npm, no @semantic-release/git), so the
-# built-in GITHUB_TOKEN suffices — no PAT.
+# built-in GITHUB_TOKEN suffices — no PAT. The release toolchain (semantic-release,
+# its plugins and the changelog preset) lives in semantic-release-ci, where a
+# toolchain bump is tested before it reaches this pin; the options stay here in
+# .releaserc.json.
 #
 # The key cadence: a Dependabot `fix(deps): bump @rmartz/pr-lifecycle …` PR is
 # auto-merged by bot-automerge, and the conventionalcommits preset maps `fix` →
@@ -15,37 +19,14 @@ on:
   push:
     branches: [main]
 
+# The shared workflow declares no permissions of its own; it runs with these.
+# Releases are serialized per repository inside it. Nothing is installed from
+# this repo's package.json, so no `packages: read` is needed.
 permissions:
   contents: write # create tags + GitHub Releases
   issues: write # semantic-release/github housekeeping
   pull-requests: write
 
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   release:
-    name: semantic-release
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write # create tags + GitHub Releases
-      issues: write # semantic-release/github housekeeping
-      pull-requests: write
-      packages: read # npm ci resolves the @rmartz/pr-lifecycle production dep (once pinned)
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0 # full history for commit analysis
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      - name: Install dependencies
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm ci
-      - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+    uses: rmartz/semantic-release-ci/.github/workflows/semantic-release.yml@4de919a5895b3add06be7faadf3bf04490d909a0 # v1.0.0

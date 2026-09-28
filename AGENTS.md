@@ -69,8 +69,17 @@ stub CLI. Keep `scripts/reconcile.sh` bash 3 compatible so they run on macOS.
 
 Automated via **semantic-release** ([`.releaserc.json`](.releaserc.json)): a merge to
 `main` cuts the git tag + GitHub Release. It publishes nothing and commits nothing
-back, so the built-in `GITHUB_TOKEN` suffices. Production-dependency bumps are titled
-`fix(deps)` and the
+back, so the built-in `GITHUB_TOKEN` suffices. The release runs through the fleet's
+shared [semantic-release-ci](https://github.com/rmartz/semantic-release-ci) workflows:
+[`release.yml`](.github/workflows/release.yml) releases, and
+[`release-check.yml`](.github/workflows/release-check.yml) (required check
+`release-check / release-check`) proves `.releaserc.json` still works with the shared
+toolchain on every PR. The toolchain (`semantic-release`, its plugins, the changelog
+preset) is **not** in this repo's `package.json` — never add it back, and never
+reintroduce a `semantic-release --dry-run` job as a release guard: on a PR it exits
+before rendering notes, so it passes without testing anything.
+
+Production-dependency bumps are titled `fix(deps)` and the
 [`dependabot-release-type`](.github/workflows/dependabot-release-type.yml) workflow
 mirrors the CLI's semver bump into the Action's release type (minor →
 `feat(deps):`, major → `feat(deps)!:` + `breaking change`). Dev-dependency and
