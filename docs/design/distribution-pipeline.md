@@ -9,8 +9,7 @@ tags: [design, releases, dependabot]
 
 New versions of the reconciler reach consumers with no manual step at any hop. The
 chain has two halves: producing a new Action release here, and consumers picking it
-up. (The first half starts working once the CLI is pinned; see the
-[overview](../overview.md) for status.)
+up.
 
 ## Producing a release (this repo)
 
@@ -25,15 +24,22 @@ up. (The first half starts working once the CLI is pinned; see the
 3. **Auto-merge.** The [`bot-automerge`](../../.github/workflows/bot-automerge.yml)
    caller enables native auto-merge on the patch/minor bump. It lands once the
    required checks pass — CI plus the
-   [`merge-safety`](https://github.com/rmartz/merge-safety) verdict.
+   [`merge-safety`](https://github.com/rmartz/merge-safety) verdict. It enables
+   auto-merge with the `BOT_AUTOMERGE_TOKEN` real-actor PAT (an Actions **and** a
+   Dependabot secret): a merge enabled with `GITHUB_TOKEN` fires no `push`
+   workflows, so step 4 would never run.
 4. **Release.** On merge to `main`, [`release.yml`](../../.github/workflows/release.yml)
-   runs semantic-release with the conventionalcommits preset
-   ([`.releaserc.json`](../../.releaserc.json)), cutting a tag + GitHub Release. It
-   publishes nothing to a registry and commits nothing back, so the built-in
-   `GITHUB_TOKEN` suffices. The `Release dry-run` job in
-   [`ci.yml`](../../.github/workflows/ci.yml) renders the release notes on every PR,
-   so a broken release toolchain fails the PR rather than silently stalling this
-   chain after an auto-merge.
+   runs semantic-release through the fleet's shared
+   [semantic-release-ci](https://github.com/rmartz/semantic-release-ci) workflow, with
+   the conventionalcommits preset ([`.releaserc.json`](../../.releaserc.json)), cutting
+   a tag + GitHub Release. It publishes nothing to a registry and commits nothing
+   back, so the built-in `GITHUB_TOKEN` suffices. The required
+   `release-check / release-check` check
+   ([`release-check.yml`](../../.github/workflows/release-check.yml)) renders the
+   release notes with the shared toolchain on every PR, so a broken release config
+   fails the PR rather than silently stalling this chain after an auto-merge. A
+   toolchain bump is tested once in semantic-release-ci, before it reaches the pin
+   here.
 
 A **major** CLI bump falls out of the auto-merge set into its own PR for a human to
 review.
