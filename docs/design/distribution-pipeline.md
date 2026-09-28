@@ -24,7 +24,10 @@ up.
 3. **Auto-merge.** The [`bot-automerge`](../../.github/workflows/bot-automerge.yml)
    caller enables native auto-merge on the patch/minor bump. It lands once the
    required checks pass — CI plus the
-   [`merge-safety`](https://github.com/rmartz/merge-safety) verdict.
+   [`merge-safety`](https://github.com/rmartz/merge-safety) verdict. It enables
+   auto-merge with the `BOT_AUTOMERGE_TOKEN` real-actor PAT (an Actions **and** a
+   Dependabot secret): a merge enabled with `GITHUB_TOKEN` fires no `push`
+   workflows, so step 4 would never run.
 4. **Release.** On merge to `main`, [`release.yml`](../../.github/workflows/release.yml)
    runs semantic-release with the conventionalcommits preset
    ([`.releaserc.json`](../../.releaserc.json)), cutting a tag + GitHub Release. It
