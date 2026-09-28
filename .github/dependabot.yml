@@ -62,3 +62,11 @@ updates:
         update-types:
           - minor
           - patch
+    cooldown:
+      # Since 2026-07-14 Dependabot waits 3 days after a release before proposing
+      # it. @rmartz/pr-lifecycle is first-party, published from rmartz/pr-lifecycle
+      # over OIDC with provenance, so the wait buys no supply-chain safety and just
+      # holds its fixes back. Exempting it lets a new CLI version arrive on the next
+      # daily run. Every other dependency keeps the default cooldown.
+      exclude:
+        - '@rmartz/pr-lifecycle'

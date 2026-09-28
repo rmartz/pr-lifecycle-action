@@ -16,7 +16,9 @@ up.
 1. **CLI bump.** `@rmartz/pr-lifecycle` publishes a new version to npmjs.
    Dependabot's npm ecosystem ([`dependabot.yml`](../../.github/dependabot.yml), no
    registry auth needed) opens a PR bumping the pinned
-   dependency + lockfile, titled `fix(deps): bump @rmartz/pr-lifecycle …`.
+   dependency + lockfile, titled `fix(deps): bump @rmartz/pr-lifecycle …`, on its
+   next daily run. The CLI is exempt from Dependabot's default 3-day release
+   cooldown, since it's first-party; other dependencies keep that cooldown.
 2. **Map the release type.** The
    [`dependabot-release-type`](../../.github/workflows/dependabot-release-type.yml)
    workflow rewrites that title to mirror the CLI's semver bump — see the
