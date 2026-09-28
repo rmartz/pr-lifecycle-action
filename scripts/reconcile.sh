@@ -25,6 +25,10 @@ flag() {
 
 args=(--repo "${REPO}" --json)
 if flag arm-auto-merge "${ARM_AUTO_MERGE}"; then args+=(--arm-auto-merge); fi
+if flag auto-update "${AUTO_UPDATE}"; then args+=(--auto-update); fi
+# Deprecated in CLI 8.0.0, which waits only on pending bot review requests; still
+# passed through so existing callers keep working (action.yml's
+# deprecationMessage warns them).
 if flag skip-copilot-review "${SKIP_COPILOT_REVIEW}"; then args+=(--skip-copilot-review); fi
 if flag dry-run "${DRY_RUN}"; then args+=(--dry-run); fi
 if ! flag token-advisory "${TOKEN_ADVISORY}"; then args+=(--no-token-advisory); fi
@@ -105,6 +109,8 @@ for pr in ${prs}; do
     | "approval carry-over stopped: \(.)"' <<<"${result}"
   jq -r '(.pr) as $pr | .autoMergeSkipped // empty
     | "::warning::#\($pr): auto-merge \(.action) skipped (\(.reason)). Pass the token input (secrets.PR_LIFECYCLE_TOKEN); see docs/consuming.md."' <<<"${result}"
+  jq -r '(.pr) as $pr | .updateSkipped // empty
+    | "::warning::#\($pr): branch update \(.action) skipped (\(.reason)). Pass the token input (secrets.PR_LIFECYCLE_TOKEN); see docs/consuming.md."' <<<"${result}"
 done
 
 # Every value is one line: scalars are plain strings, and objects and arrays are
@@ -124,7 +130,9 @@ if [ "${#results[@]}" -eq 1 ]; then
     "auto-merge-skipped=\(.autoMergeSkipped | obj)",
     "bot-eligible=\(.botEligibility.eligible)",
     "bot-eligibility=\(.botEligibility | tojson)",
-    "carry-over=\(.carryOver | obj)"' <<<"${results[0]}" >>"${GITHUB_OUTPUT}"
+    "carry-over=\(.carryOver | obj)",
+    "update=\(.update)",
+    "update-skipped=\(.updateSkipped | obj)"' <<<"${results[0]}" >>"${GITHUB_OUTPUT}"
 fi
 
 exit "${failed}"

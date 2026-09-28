@@ -28,6 +28,8 @@ const baseResult = {
   },
   carryOver: null,
   autoMergeSkipped: null,
+  update: 'none',
+  updateSkipped: null,
 };
 
 // The CLI stub logs its argv (one line per call) and prints STUB_RESULT with `pr`
@@ -79,6 +81,7 @@ function run({ env = {}, event, result = baseResult, gh = [] } = {}) {
       REPO,
       PR_NUMBER: '',
       ARM_AUTO_MERGE: 'false',
+      AUTO_UPDATE: 'false',
       TRUSTED_AUTHORS: '',
       SKIP_COPILOT_REVIEW: 'false',
       HOLD_CHECKS: '',
@@ -120,6 +123,7 @@ describe('invokes the pinned CLI with flags mapped 1:1 from the inputs', () => {
       env: {
         PR_NUMBER: '7',
         ARM_AUTO_MERGE: 'true',
+        AUTO_UPDATE: 'true',
         SKIP_COPILOT_REVIEW: 'true',
         DRY_RUN: 'true',
         TOKEN_ADVISORY: 'false',
@@ -130,7 +134,7 @@ describe('invokes the pinned CLI with flags mapped 1:1 from the inputs', () => {
     });
     assert.equal(r.status, 0);
     assert.deepEqual(r.cliCalls, [
-      `reconcile --pr 7 --repo ${REPO} --json --arm-auto-merge --skip-copilot-review --dry-run ` +
+      `reconcile --pr 7 --repo ${REPO} --json --arm-auto-merge --auto-update --skip-copilot-review --dry-run ` +
         '--no-token-advisory --trusted-authors alice,bob --hold-checks pr-policy,uat --ignore-checks merge-safety',
     ]);
   });
@@ -163,6 +167,8 @@ describe('exposes the --json fields as step outputs', () => {
     assert.equal(r.outputs['bot-eligible'], 'false');
     assert.deepEqual(JSON.parse(r.outputs['bot-eligibility']), baseResult.botEligibility);
     assert.equal(r.outputs['carry-over'], '');
+    assert.equal(r.outputs.update, 'none');
+    assert.equal(r.outputs['update-skipped'], '');
   });
 
   it('serialises non-null objects and warns when arming was skipped', () => {
@@ -178,6 +184,18 @@ describe('exposes the --json fields as step outputs', () => {
     assert.deepEqual(JSON.parse(r.outputs['carry-over']), result.carryOver);
     assert.match(r.stdout, /::warning::#7: auto-merge arm skipped \(token-missing\)/);
     assert.match(r.stdout, /approval carry-over stopped: no reviews on earlier commits/);
+  });
+
+  it('serialises a skipped branch update and warns about it', () => {
+    const result = {
+      ...baseResult,
+      updateSkipped: { action: 'update-branch', reason: 'token-missing' },
+    };
+    const r = run({ env: { PR_NUMBER: '7' }, result });
+    assert.equal(r.status, 0);
+    assert.equal(r.outputs.update, 'none');
+    assert.deepEqual(JSON.parse(r.outputs['update-skipped']), result.updateSkipped);
+    assert.match(r.stdout, /::warning::#7: branch update update-branch skipped \(token-missing\)/);
   });
 });
 
