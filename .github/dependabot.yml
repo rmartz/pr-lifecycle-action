@@ -62,12 +62,3 @@ updates:
         update-types:
           - minor
           - patch
-    ignore:
-      # conventional-changelog-conventionalcommits@10 requires changelog-writer@9,
-      # but @semantic-release/release-notes-generator@14 ships writer@8, so a v10
-      # bump breaks the Release job — and that failure only surfaces post-merge (CI
-      # is green on the PR), making an automated major a latent release-breaker.
-      # Bump this preset's major by hand only when release-notes-generator moves to
-      # a writer@9 line; minor/patch (9.x) updates flow normally.
-      - dependency-name: 'conventional-changelog-conventionalcommits'
-        update-types: ['version-update:semver-major']
