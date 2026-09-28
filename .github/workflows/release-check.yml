@@ -1,0 +1,24 @@
+name: Release check
+
+# Proves .releaserc.json works with the shared release toolchain
+# (rmartz/semantic-release-ci) before it merges: loads the config the way
+# semantic-release does, then runs the real commit-analyzer and
+# release-notes-generator on synthetic feat!/feat/fix commits. It fails on a config
+# that would not release or render — a preset/writer mismatch, a bad preset
+# option, a plugin the toolchain does not ship, a preset that drops `!`.
+#
+# It replaces the old `semantic-release --dry-run` job, which exits on a
+# pull_request event before rendering notes and so passed without testing
+# anything. Needs only `contents: read`, so it runs on Dependabot and fork PRs.
+# Required check: `release-check / release-check`. It runs on every PR — never
+# gate a required check with `on.paths`.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  release-check:
+    uses: rmartz/semantic-release-ci/.github/workflows/release-check.yml@4de919a5895b3add06be7faadf3bf04490d909a0 # v1.0.0
