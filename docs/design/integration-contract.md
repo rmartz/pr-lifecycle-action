@@ -35,8 +35,15 @@ How a repo calls the action is in [Consuming the action](../consuming.md).
      PR, and fails the step if any run exits non-zero;
    - **fails loudly on any `schemaVersion` other than `1`**, rather than guessing at
      a shape it doesn't know;
-   - writes the fields as step outputs, and surfaces `carryOver.stoppedBecause` and
-     `autoMergeSkipped` in the job log.
+   - writes the fields as step outputs, and surfaces `carryOver.stoppedBecause`,
+     `autoMergeSkipped`, and `updateSkipped` in the job log.
+
+The `state` output passes the CLI's value through unchanged, so a CLI rename
+reaches consumers as-is: CLI 8.0.0 renamed `awaiting-copilot` to
+`awaiting-bot-review` without a `schemaVersion` bump, which is why that pin bump
+was a major action release (see [versioning](versioning.md)). The deprecated
+`skip-copilot-review` input still maps to `--skip-copilot-review`; `action.yml`'s
+`deprecationMessage` warns callers that set it.
 
 Its behaviour is pinned by hermetic tests in
 [`test/reconcile.test.mjs`](../../test/reconcile.test.mjs), which run the script
@@ -68,7 +75,8 @@ into this repo. This is how CI completing on GitHub Actions — which never fire
   ([rmartz/ai-tools#306](https://github.com/rmartz/ai-tools/issues/306)).
 - **It never checks out or runs PR code**, which is what makes running on
   `pull_request_target` with a write token safe.
-- **It never arms with `GITHUB_TOKEN`.** Only `token` reaches `PR_LIFECYCLE_TOKEN`.
+- **It never arms, merges, or updates a branch with `GITHUB_TOKEN`.** Only
+  `token` reaches `PR_LIFECYCLE_TOKEN`.
 
 ## Composite action only
 

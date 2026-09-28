@@ -21,12 +21,11 @@ current; the rationale is recorded on
 
 ## Status
 
-**Early.** [`action.yml`](../action.yml) pins `@rmartz/pr-lifecycle` **5.0.0**, the
-latest version on npmjs. Use it for labelling now. Hold off on `arm-auto-merge` until
-[rmartz/pr-lifecycle#40](https://github.com/rmartz/pr-lifecycle/issues/40) ships
-(see [Before you arm auto-merge](consuming.md#before-you-arm-auto-merge)). CLI
-features newer than 5.0.0, such as `--auto-update`, arrive as Dependabot bumps of
-the pin, each followed by the input that exposes it.
+**Early.** The action pins `@rmartz/pr-lifecycle` **8.0.0** in
+[`package.json`](../package.json). Labelling, `arm-auto-merge`, and `auto-update`
+are all usable; check [Before you arm auto-merge](consuming.md#before-you-arm-auto-merge)
+first. New CLI features arrive as Dependabot bumps of the pin, each followed by the
+input that exposes it.
 
 ## How it fits together
 
