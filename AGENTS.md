@@ -21,14 +21,13 @@ The action is [`action.yml`](action.yml); its reconcile step is
   step that arms auto-merge itself, or skips the CLI for a "known-safe" PR).
 - **The interface contract lives on
   [rmartz/pr-lifecycle#6](https://github.com/rmartz/pr-lifecycle/issues/6)** — the
-  `ai-pr-lifecycle reconcile` flags, token env vars, exit codes, and the versioned
+  `pr-lifecycle reconcile` flags, token env vars, exit codes, and the versioned
   `--json` output (`schemaVersion`). Raise any change you need there before building
   against it. Fail loudly on an unknown `schemaVersion` rather than guessing.
 - **Do not invent fleet contracts** — check-run names, label names, or input names
   beyond what #6 defines are the package's to choose.
-- **The trusted-authors allowlist is a security requirement**
-  ([rmartz/ai-tools#306](https://github.com/rmartz/ai-tools/issues/306)): never give
-  it a "trust anyone" default.
+- **The trusted-authors allowlist is a security requirement:** never give it a
+  "trust anyone" default.
 
 ## Documentation — read it first, maintain it every task
 

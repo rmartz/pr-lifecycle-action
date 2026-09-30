@@ -8,7 +8,7 @@ tags: [action, consuming, inputs, outputs, permissions, triggers]
 # Consuming the action
 
 A consuming repo adds one caller workflow. On every relevant event the action runs
-`ai-pr-lifecycle reconcile` for the PR(s) the event is about, converging the PR's
+`pr-lifecycle reconcile` for the PR(s) the event is about, converging the PR's
 lifecycle labels and, when enabled, GitHub-native auto-merge. The CLI makes every
 decision; see the [integration contract](design/integration-contract.md).
 

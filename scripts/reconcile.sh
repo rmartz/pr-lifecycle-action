@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The reconcile step of action.yml. Resolves the PR(s) the triggering event is
-# about, runs `ai-pr-lifecycle reconcile --json` on each, and writes the results to
+# about, runs `pr-lifecycle reconcile --json` on each, and writes the results to
 # $GITHUB_OUTPUT. It makes no lifecycle decision of its own: the CLI owns all of
 # them (see docs/design/integration-contract.md).
 #
@@ -8,7 +8,7 @@
 # compatible so the tests run on a stock macOS shell too.
 set -euo pipefail
 
-cli="${GITHUB_ACTION_PATH}/node_modules/.bin/ai-pr-lifecycle"
+cli="${GITHUB_ACTION_PATH}/node_modules/.bin/pr-lifecycle"
 
 # Boolean inputs arrive as strings. Reject anything but true/false so a typo (e.g.
 # `True`, `yes`) fails the run instead of silently disabling the behaviour.
@@ -90,14 +90,14 @@ for pr in ${prs}; do
   # stdout carries exactly one JSON object; the CLI's logs go to stderr, which
   # streams straight to the job log. Exit 1 is an API failure, 2 a usage error.
   if ! result=$("${cli}" reconcile --pr "${pr}" "${args[@]}"); then
-    echo "::error::ai-pr-lifecycle reconcile failed for #${pr} (see the log above)"
+    echo "::error::pr-lifecycle reconcile failed for #${pr} (see the log above)"
     failed=1
     continue
   fi
 
   schema=$(jq -r '.schemaVersion' <<<"${result}")
   if [ "${schema}" != "1" ]; then
-    echo "::error::ai-pr-lifecycle returned schemaVersion ${schema} for #${pr}; this action understands only 1. Update pr-lifecycle-action."
+    echo "::error::pr-lifecycle returned schemaVersion ${schema} for #${pr}; this action understands only 1. Update pr-lifecycle-action."
     failed=1
     continue
   fi
