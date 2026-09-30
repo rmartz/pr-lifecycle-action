@@ -54,8 +54,8 @@ function run({ env = {}, event, result = baseResult, gh = [] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'reconcile-test-'));
   const binDir = join(dir, 'node_modules', '.bin');
   mkdirSync(binDir, { recursive: true });
-  writeFileSync(join(binDir, 'ai-pr-lifecycle'), cliStub);
-  chmodSync(join(binDir, 'ai-pr-lifecycle'), 0o755);
+  writeFileSync(join(binDir, 'pr-lifecycle'), cliStub);
+  chmodSync(join(binDir, 'pr-lifecycle'), 0o755);
   const pathDir = join(dir, 'path');
   mkdirSync(pathDir);
   writeFileSync(join(pathDir, 'gh'), ghStub);
@@ -203,14 +203,14 @@ describe('fails loudly', () => {
   it('on an unknown schemaVersion', () => {
     const r = run({ env: { PR_NUMBER: '7' }, result: { ...baseResult, schemaVersion: 2 } });
     assert.equal(r.status, 1);
-    assert.match(r.stdout, /::error::ai-pr-lifecycle returned schemaVersion 2 for #7/);
+    assert.match(r.stdout, /::error::pr-lifecycle returned schemaVersion 2 for #7/);
     assert.equal(r.outputs.state, undefined);
   });
 
   it('when the CLI exits non-zero', () => {
     const r = run({ env: { PR_NUMBER: '7', STUB_FAIL_PR: '7' } });
     assert.equal(r.status, 1);
-    assert.match(r.stdout, /::error::ai-pr-lifecycle reconcile failed for #7/);
+    assert.match(r.stdout, /::error::pr-lifecycle reconcile failed for #7/);
   });
 });
 

@@ -21,7 +21,7 @@ current; the rationale is recorded on
 
 ## Status
 
-**Early.** The action pins `@rmartz/pr-lifecycle` **8.0.0** in
+**Early.** The action pins `@rmartz/pr-lifecycle` **10.0.0** in
 [`package.json`](../package.json). Labelling, `arm-auto-merge`, and `auto-update`
 are all usable; check [Before you arm auto-merge](consuming.md#before-you-arm-auto-merge)
 first. New CLI features arrive as Dependabot bumps of the pin, each followed by the

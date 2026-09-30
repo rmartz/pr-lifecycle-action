@@ -1,13 +1,13 @@
 ---
 type: Design
 title: The integration contract
-description: What the action relies on from the ai-pr-lifecycle CLI, what it adds around it (PR resolution, output mapping, schemaVersion guard), what it deliberately never does, and why it ships as a composite action only.
+description: What the action relies on from the pr-lifecycle CLI, what it adds around it (PR resolution, output mapping, schemaVersion guard), what it deliberately never does, and why it ships as a composite action only.
 tags: [design, contract, cli, security]
 ---
 
 # The integration contract
 
-The action is a thin wrapper around `ai-pr-lifecycle reconcile` from
+The action is a thin wrapper around `pr-lifecycle reconcile` from
 [`@rmartz/pr-lifecycle`](https://github.com/rmartz/pr-lifecycle), pinned to an
 exact version in [`package.json`](../../package.json) and the lockfile. The CLI's
 contract — flags, environment, exit codes, and the versioned `--json` shape — is
@@ -71,8 +71,7 @@ into this repo. This is how CI completing on GitHub Actions — which never fire
   on a trusted user's approval of its current head.
 - **It never trusts anyone by default.** An empty `trusted-authors` omits the flag,
   leaving the CLI's policy — verdicts from write-access users, never bots — in
-  place. The action offers no way to widen trust
-  ([rmartz/ai-tools#306](https://github.com/rmartz/ai-tools/issues/306)).
+  place. The action offers no way to widen trust.
 - **It never checks out or runs PR code**, which is what makes running on
   `pull_request_target` with a write token safe.
 - **It never arms, merges, or updates a branch with `GITHUB_TOKEN`.** Only

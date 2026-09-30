@@ -6,7 +6,7 @@ branding:
   icon: 'git-pull-request'
   color: 'blue'
 
-# A composite action that wraps `ai-pr-lifecycle reconcile` from the
+# A composite action that wraps `pr-lifecycle reconcile` from the
 # @rmartz/pr-lifecycle CLI. The CLI owns every decision (lifecycle state, labels,
 # bot eligibility, fork trust, whether to arm or merge); this action only installs
 # the version pinned in its own package-lock.json, works out which PR(s) the event
