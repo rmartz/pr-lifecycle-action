@@ -29,4 +29,4 @@ permissions:
 
 jobs:
   release:
-    uses: rmartz/semantic-release-ci/.github/workflows/semantic-release.yml@4de919a5895b3add06be7faadf3bf04490d909a0 # v1.0.0
+    uses: rmartz/semantic-release-ci/.github/workflows/semantic-release.yml@55b1f6145b85738f94ad87c12c9d4f41ab7818b4 # v2.0.0
