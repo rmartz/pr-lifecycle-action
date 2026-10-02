@@ -48,11 +48,12 @@ This repo is held to the shared
 [repository checklist](https://github.com/rmartz/ai/blob/main/docs/guidance/repository-checklist.md)
 and **self-manages** its own config: fix conformance gaps directly here, in a PR.
 The `repo-hygiene`, `merge-safety`, and `bot-automerge` callers are SHA-pinned and
-bumped by Dependabot; CI, PR-title lint, the `commit-convention` tripwire, labels,
+bumped by Dependabot; CI, the `commit-convention` tripwire, labels,
 `dependabot.yml`, and the squash-merge setting are owned here. The
 [`pr-policy`](.github/workflows/pr-policy.yml) caller runs `rmartz/pr-policy-action`
 (SHA-pinned, Dependabot-bumped) with `skip-uat: true`, since this repo has nothing
-to user-test.
+to user-test. Its `title` check validates PR titles (Conventional Commits,
+breaking-marker and type rules), so there is no separate PR-title-lint workflow.
 
 ## Common commands
 
