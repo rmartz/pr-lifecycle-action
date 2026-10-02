@@ -50,6 +50,7 @@ permissions:
   contents: read # branch rules, base head, commits for approval carry-over
   checks: read # the CI gate
   statuses: read # the CI gate
+  actions: write # optional: report a transient failure as a cancelled run
 
 jobs:
   reconcile:
@@ -83,6 +84,15 @@ bump it; that is how new reconciler logic reaches you (see the
 `pull_request_target` with a write token. The action reads the PR over the API and
 never checks out or runs PR code; approval carry-over fetches commits from the
 base repository with `git` as data only.
+
+## Transient failures
+
+A rate limit, a GitHub outage, or a network error says nothing about the PR, so
+the action reports it as a **cancelled** run rather than a failed one. A failed
+run is kept for a real problem. Cancelling needs `actions: write`. Without it,
+the job log gets a warning and the run succeeds. Either way, the next event
+reconciles the PR. See the
+[integration contract](design/integration-contract.md).
 
 ## Which PR it reconciles
 

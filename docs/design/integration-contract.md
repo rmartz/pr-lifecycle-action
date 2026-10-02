@@ -32,7 +32,16 @@ How a repo calls the action is in [Consuming the action](../consuming.md).
      (`GITHUB_API_URL` comes from the runner);
    - resolves the PR(s) when `pr` is empty (below);
    - runs the CLI by absolute path from `node_modules/.bin` with `--json`, once per
-     PR, and fails the step if any run exits non-zero;
+     PR, and fails the step if any run exits non-zero, except `75`;
+   - **reports a transient failure as a cancelled run.** CLI exit `75` means a
+     rate limit, a GitHub outage, or a network error, not a problem with the PR,
+     and a failed run should mean the PR needs a fix. A step can't mark its own
+     job cancelled, so the script asks the API to cancel the run (`POST
+…/actions/runs/{id}/cancel`, which needs `actions: write`) and waits for the
+     runner to stop the job. If the job lacks the permission, or the cancel
+     doesn't land within two minutes, it leaves a warning and the step succeeds:
+     the next event reconciles the PR anyway. A real failure on another PR in
+     the same run still fails the step, without cancelling;
    - **fails loudly on any `schemaVersion` other than `1`**, rather than guessing at
      a shape it doesn't know;
    - writes the fields as step outputs, and surfaces `carryOver.stoppedBecause`,
