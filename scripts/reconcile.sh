@@ -86,10 +86,20 @@ fi
 
 results=()
 failed=0
+transient=0
 for pr in ${prs}; do
   # stdout carries exactly one JSON object; the CLI's logs go to stderr, which
-  # streams straight to the job log. Exit 1 is an API failure, 2 a usage error.
-  if ! result=$("${cli}" reconcile --pr "${pr}" "${args[@]}"); then
+  # streams straight to the job log. Exit 1 is an API failure, 2 a usage error,
+  # and 75 a transient one (a rate limit, a GitHub outage, the network) that says
+  # nothing about the PR.
+  status=0
+  result=$("${cli}" reconcile --pr "${pr}" "${args[@]}") || status=$?
+  if [ "${status}" -eq 75 ]; then
+    echo "::warning::pr-lifecycle reconcile for #${pr} was interrupted by a transient failure (see the log above); the next event reconciles it"
+    transient=1
+    continue
+  fi
+  if [ "${status}" -ne 0 ]; then
     echo "::error::pr-lifecycle reconcile failed for #${pr} (see the log above)"
     failed=1
     continue
@@ -133,6 +143,25 @@ if [ "${#results[@]}" -eq 1 ]; then
     "carry-over=\(.carryOver | obj)",
     "update=\(.update)",
     "update-skipped=\(.updateSkipped | obj)"' <<<"${results[0]}" >>"${GITHUB_OUTPUT}"
+fi
+
+# A transient failure is reported as a cancelled run, not a failed one: failure is
+# kept for a real problem. A step can't mark its own job cancelled, so this asks
+# the API to cancel the run (needs `actions: write`) and waits for the runner to
+# stop the job. Without the permission, or if the cancel never lands, the warning
+# above stands and the step succeeds. A real failure on another PR still wins.
+if [ "${failed}" -eq 0 ] && [ "${transient}" -eq 1 ]; then
+  if gh api --method POST "repos/${REPO}/actions/runs/${GITHUB_RUN_ID:-}/cancel" >/dev/null; then
+    echo "Cancelling this run: a transient failure interrupted the reconcile."
+    wait_seconds="${PR_LIFECYCLE_CANCEL_WAIT:-120}"
+    while [ "${wait_seconds}" -gt 0 ]; do
+      sleep 1
+      wait_seconds=$((wait_seconds - 1))
+    done
+    echo "::warning::the run was not cancelled in time; finishing as a success instead"
+  else
+    echo "::warning::could not cancel the run after a transient failure (grant the job actions: write to report it as cancelled); finishing as a success instead"
+  fi
 fi
 
 exit "${failed}"
