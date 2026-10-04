@@ -33,7 +33,8 @@ const baseResult = {
 };
 
 // The CLI stub logs its argv (one line per call) and prints STUB_RESULT with `pr`
-// set to the --pr it was given, or exits 1 for the PR named in STUB_FAIL_PR.
+// set to the --pr it was given, or exits 1 for the PR named in STUB_FAIL_PR and 75
+// (a transient failure) for the one named in STUB_TRANSIENT_PR.
 const cliStub = `#!/usr/bin/env bash
 echo "$*" >>"$STUB_CLI_LOG"
 pr=""
@@ -42,11 +43,15 @@ while [ $# -gt 0 ]; do
   shift
 done
 if [ "$pr" = "\${STUB_FAIL_PR:-}" ]; then echo "boom" >&2; exit 1; fi
+if [ "$pr" = "\${STUB_TRANSIENT_PR:-}" ]; then echo "rate limited" >&2; exit 75; fi
 jq -c --argjson pr "$pr" '.pr = $pr' <<<"$STUB_RESULT"
 `;
 
 const ghStub = `#!/usr/bin/env bash
 echo "$*" >>"$STUB_GH_LOG"
+case "$*" in
+  */cancel) if [ -n "\${STUB_GH_CANCEL_FAIL:-}" ]; then echo "HTTP 403" >&2; exit 1; fi ;;
+esac
 printf '%s' "$STUB_GH_OUTPUT"
 `;
 
@@ -78,6 +83,8 @@ function run({ env = {}, event, result = baseResult, gh = [] } = {}) {
       GITHUB_OUTPUT: files.output,
       GITHUB_EVENT_PATH: event ? files.event : '',
       GITHUB_EVENT_NAME: 'test',
+      GITHUB_RUN_ID: '555',
+      PR_LIFECYCLE_CANCEL_WAIT: '0',
       REPO,
       PR_NUMBER: '',
       ARM_AUTO_MERGE: 'false',
@@ -211,6 +218,72 @@ describe('fails loudly', () => {
     const r = run({ env: { PR_NUMBER: '7', STUB_FAIL_PR: '7' } });
     assert.equal(r.status, 1);
     assert.match(r.stdout, /::error::pr-lifecycle reconcile failed for #7/);
+  });
+});
+
+describe('reports a transient CLI failure (exit 75) as a cancelled run', () => {
+  const cancel = `api --method POST repos/${REPO}/actions/runs/555/cancel`;
+
+  it('asks the API to cancel the run', () => {
+    const r = run({ env: { PR_NUMBER: '7', STUB_TRANSIENT_PR: '7' } });
+    assert.deepEqual(r.ghCalls, [cancel]);
+    assert.match(
+      r.stdout,
+      /::warning::pr-lifecycle reconcile for #7 was interrupted by a transient failure/,
+    );
+    assert.match(r.stdout, /Cancelling this run/);
+  });
+
+  it('succeeds when the cancel does not land in time', () => {
+    const r = run({ env: { PR_NUMBER: '7', STUB_TRANSIENT_PR: '7' } });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /::warning::the run was not cancelled in time/);
+  });
+
+  it('warns and succeeds when the run cannot be cancelled (no actions: write)', () => {
+    const r = run({ env: { PR_NUMBER: '7', STUB_TRANSIENT_PR: '7', STUB_GH_CANCEL_FAIL: '1' } });
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /::warning::could not cancel the run after a transient failure/);
+  });
+
+  it('keeps reconciling the other PRs and reports their results', () => {
+    const r = run({
+      env: { STUB_TRANSIENT_PR: '20' },
+      event: {
+        workflow_run: {
+          pull_requests: [
+            { number: 20, base: { repo: { id: REPO_ID } } },
+            { number: 21, base: { repo: { id: REPO_ID } } },
+          ],
+        },
+      },
+    });
+    assert.equal(r.cliCalls.length, 2);
+    assert.deepEqual(
+      JSON.parse(r.outputs.results).map((x) => x.pr),
+      [21],
+    );
+  });
+
+  it('fails without cancelling when another PR failed for real', () => {
+    const r = run({
+      env: { STUB_TRANSIENT_PR: '20', STUB_FAIL_PR: '21' },
+      event: {
+        workflow_run: {
+          pull_requests: [
+            { number: 20, base: { repo: { id: REPO_ID } } },
+            { number: 21, base: { repo: { id: REPO_ID } } },
+          ],
+        },
+      },
+    });
+    assert.equal(r.status, 1);
+    assert.deepEqual(r.ghCalls, []);
+  });
+
+  it('does not cancel a run with no transient failure', () => {
+    const r = run({ env: { PR_NUMBER: '7' } });
+    assert.deepEqual(r.ghCalls, []);
   });
 });
 
