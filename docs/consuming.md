@@ -29,6 +29,10 @@ on:
       - edited
       - labeled
       - unlabeled
+      # A bot review request added (or removed by hand) after a run's settle
+      # wait moves the PR into (or out of) awaiting-bot-review.
+      - review_requested
+      - review_request_removed
   pull_request_review:
     types: [submitted, dismissed, edited]
   # CI completion. check_suite covers CI from third-party apps; it never fires for
@@ -193,3 +197,14 @@ pending (CLI 8.0.0,
 longer hangs on Dependabot PRs, repos without Copilot, or an out-of-quota Copilot.
 The state was named `awaiting-copilot` before 8.0.0; update anything that matches
 on the old name.
+
+**Leaving `awaiting-bot-review` after a Copilot review.** GitHub holds any
+workflow run that Copilot's review triggers (`pull_request_review`) until a
+maintainer approves it. If nobody does, GitHub later fails it without running a
+job. Copilot's request is cleared without a `review_request_removed` event,
+which only fires when someone removes a request by hand. So the PR moves on at
+the next event that does run, usually its CI completing (`workflow_run` /
+`check_suite`). Approving the held run moves it on at once. It's harmless,
+since the run only recomputes labels. `review_requested` is not held, so a
+request that lands late still moves the PR into `awaiting-bot-review` straight
+away (verified in rmartz/pr-lifecycle#85).
