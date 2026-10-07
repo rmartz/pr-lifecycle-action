@@ -31,7 +31,7 @@ on:
   check_suite:
     types: [completed]
   workflow_run:
-    workflows: [CI, Repo Hygiene, Release check, pr-policy]
+    workflows: [CI, Repo Hygiene, Release check, pr-policy, merge-safety]
     types: [completed]
   workflow_dispatch:
     inputs:
