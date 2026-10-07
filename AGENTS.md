@@ -54,6 +54,11 @@ bumped by Dependabot; CI, the `commit-convention` tripwire, labels,
 (SHA-pinned, Dependabot-bumped) with `skip-uat: true`, since this repo has nothing
 to user-test. Its `title` check validates PR titles (Conventional Commits,
 breaking-marker and type rules), so there is no separate PR-title-lint workflow.
+The [`pr-lifecycle`](.github/workflows/pr-lifecycle.yml) caller dogfoods this
+repo's own **published** action (SHA-pinned, Dependabot-bumped — never a local
+`./` ref). It labels PRs only for now; `bot-automerge` still arms eligible bot PRs
+until pr-lifecycle takes over arming
+([rmartz/pr-lifecycle#10](https://github.com/rmartz/pr-lifecycle/issues/10)).
 
 ## Common commands
 
