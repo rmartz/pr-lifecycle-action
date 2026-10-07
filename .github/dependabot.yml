@@ -22,13 +22,17 @@ updates:
       prefix: chore
       include: scope
     groups:
-      # Every action bump, majors included, lands in one PR. bot-automerge holds
-      # a group containing a major for human review (fetch-metadata reports the
-      # group's highest update-type), and a major that breaks CI is split out into
-      # its own fix PR rather than holding the rest of the group back.
+      # Patch and minor action bumps land in one PR, which auto-merges. A major
+      # matches no group, so Dependabot opens it as its own PR for review instead
+      # of holding every routine bump in the group: the auto-merge path judges a
+      # grouped PR by its highest update type (rmartz/ai repository checklist
+      # §Supply chain).
       github-actions:
         patterns:
           - '*'
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: npm
     directory: /
