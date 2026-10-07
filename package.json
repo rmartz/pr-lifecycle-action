@@ -32,6 +32,6 @@
     "prettier": "^3.9.8"
   },
   "dependencies": {
-    "@rmartz/pr-lifecycle": "10.0.0"
+    "@rmartz/pr-lifecycle": "10.1.1"
   }
 }
