@@ -65,6 +65,6 @@ jobs:
         github.event.workflow_run.head_sha || github.event.check_suite.head_sha }}
       cancel-in-progress: true
     steps:
-      - uses: rmartz/pr-lifecycle-action@27e3f467ad18d8f6971a4a74bafdb367e323ec18 # v4.1.0
+      - uses: rmartz/pr-lifecycle-action@a4771798d3fd1aeae39dffb897dc30d1d9ec47d0 # v4.1.1
         with:
           arm-auto-merge: false
