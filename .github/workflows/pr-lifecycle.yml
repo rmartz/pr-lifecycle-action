@@ -24,6 +24,10 @@ on:
       - edited
       - labeled
       - unlabeled
+      # A bot review request added (or removed by hand) after a run's settle
+      # wait moves the PR into (or out of) awaiting-bot-review.
+      - review_requested
+      - review_request_removed
   pull_request_review:
     types: [submitted, dismissed, edited]
   # CI completion. check_suite never fires for suites GitHub Actions creates, so
