@@ -54,8 +54,12 @@ updates:
       prefix-development: chore
       include: scope
     groups:
-      # Prettier isolated so a reformatting bump can't hide in a catch-all.
-      prettier:
+      # CI-sensitive tools in one group: pr-policy requires a `ci` title for any
+      # eslint/prettier version change (the formatter/linter can fail files a PR
+      # never touched), so they must not ride in a catch-all where they would
+      # block every routine bump. Plugins and configs move in lockstep with their
+      # tool. No update-types filter, so a major brings its family with it.
+      ci:
         patterns:
           - 'prettier'
       dev-dependencies:
