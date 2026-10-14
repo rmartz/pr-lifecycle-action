@@ -27,9 +27,12 @@ up.
    caller enables native auto-merge on the patch/minor bump. It lands once the
    required checks pass — CI plus the
    [`merge-safety`](https://github.com/rmartz/merge-safety) verdict. It enables
-   auto-merge with the `BOT_AUTOMERGE_TOKEN` real-actor PAT (an Actions **and** a
-   Dependabot secret): a merge enabled with `GITHUB_TOKEN` fires no `push`
-   workflows, so step 4 would never run.
+   auto-merge with an installation token for the `rmartz-merge-bot` GitHub App,
+   minted per run from the `MERGE_BOT_CLIENT_ID` / `MERGE_BOT_PRIVATE_KEY` secrets
+   (each an Actions **and** a Dependabot secret): a merge enabled with
+   `GITHUB_TOKEN` fires no `push` workflows, so step 4 would never run, whereas
+   App-authored events do trigger them. The App also has its own rate-limit pool,
+   separate from the user's (rmartz/scripts#22).
 4. **Release.** On merge to `main`, [`release.yml`](../../.github/workflows/release.yml)
    runs semantic-release through the fleet's shared
    [semantic-release-ci](https://github.com/rmartz/semantic-release-ci) workflow, with

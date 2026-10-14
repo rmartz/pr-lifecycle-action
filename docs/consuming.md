@@ -75,9 +75,17 @@ jobs:
         github.event.workflow_run.head_sha || github.event.check_suite.head_sha }}
       cancel-in-progress: true
     steps:
+      # Mint a short-lived GitHub App installation token for the `token` input
+      # (see "The real-actor token" below). Store the App's Client ID and private
+      # key as both Actions and Dependabot secrets.
+      - uses: actions/create-github-app-token@<sha> # vX.Y.Z
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: rmartz/pr-lifecycle-action@<sha> # vX.Y.Z
         with:
-          token: ${{ secrets.PR_LIFECYCLE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 ```
 
 Pin the action by full commit SHA and let Dependabot's `github-actions` ecosystem
@@ -161,12 +169,21 @@ A merge made with `GITHUB_TOKEN` — including one GitHub performs because
 pipeline would never run. The CLI therefore arms, merges, and updates branches only
 with the `token` input, and never falls back to `github-token`:
 
-- **What it is:** a fine-grained PAT with **Contents: read and write** and **Pull
-  requests: read and write** on the repository (a GitHub App installation token
-  works too).
-- **Where to store it:** as the `PR_LIFECYCLE_TOKEN` **Actions** secret, and also as
-  a **Dependabot** secret if bot PRs should auto-merge — a run Dependabot triggers
-  sees only Dependabot secrets.
+- **Recommended: a GitHub App installation token.** Create a GitHub App with
+  **Contents: read and write** and **Pull requests: read and write**, install it
+  on the repository, and mint a short-lived installation token each run with
+  [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token),
+  passing `steps.app-token.outputs.token` as `token` (see [the caller](#the-caller)).
+  App-authored merges still trigger `on: push` workflows, the App draws on its
+  own rate-limit pool, and merges are attributed to the App's bot account.
+- **Still supported: a fine-grained PAT** with the same two permissions, passed
+  as `token: ${{ secrets.PR_LIFECYCLE_TOKEN }}`. GitHub rate-limits per user
+  across all of a user's tokens, so a PAT shares its owner's pool with
+  everything else they run (another automation can exhaust it and fail this
+  job), and every arm, merge, and branch update is attributed to that user.
+- **Where to store the credentials:** as **Actions** secrets (the App's Client ID
+  and private key, or the PAT), and also as **Dependabot** secrets if bot PRs
+  should auto-merge — a run Dependabot triggers sees only Dependabot secrets.
 - **When it's missing:** the run still succeeds and labels converge, but the arm,
   merge, or branch update is skipped. The job log shows a warning,
   `auto-merge-skipped` or `update-skipped` is set, and the CLI posts one advisory
