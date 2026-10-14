@@ -15,10 +15,21 @@ merge lands.
 ## Usage
 
 ```yaml
+# Mint a GitHub App installation token (recommended over a PAT).
+- uses: actions/create-github-app-token@<sha> # vX.Y.Z
+  id: app-token
+  with:
+    client-id: ${{ secrets.APP_CLIENT_ID }}
+    private-key: ${{ secrets.APP_PRIVATE_KEY }}
 - uses: rmartz/pr-lifecycle-action@<sha> # vX.Y.Z
   with:
-    token: ${{ secrets.PR_LIFECYCLE_TOKEN }} # real-actor token, used only to arm/merge
+    token: ${{ steps.app-token.outputs.token }} # real-actor token, used only to arm/merge
 ```
+
+A GitHub App installation token is recommended for `token`: a PAT shares its
+owner's per-user rate-limit pool and attributes merges to that user. A
+fine-grained PAT is still supported. See
+[the real-actor token](docs/consuming.md#the-real-actor-token).
 
 The full caller — triggers, permissions, concurrency — plus every input and output
 is in [docs/consuming.md](docs/consuming.md).
