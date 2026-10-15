@@ -36,12 +36,14 @@ on:
   pull_request_review:
     types: [submitted, dismissed, edited]
   # CI completion. check_suite covers CI from third-party apps; it never fires for
-  # suites GitHub Actions creates, so workflow_run covers Actions CI. List your own
-  # CI workflow names.
+  # suites GitHub Actions creates, so workflow_run covers Actions CI. List every
+  # Actions workflow behind a required check, including a hold check such as
+  # pr-policy: the CI gate ignores a hold's pending but counts its failure, so
+  # its failing-to-passing transition needs a re-reconcile to clear `ci failing`.
   check_suite:
     types: [completed]
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, pr-policy]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -130,7 +132,7 @@ calling the CLI. Set `pr` explicitly only to override this.
 | `auto-update`         | `false`         | Bring an approved PR that merge-safety labels `update required` up to date with its base; a Dependabot PR is asked to rebase instead (`--auto-update`).     |
 | `trusted-authors`     | _(empty)_       | Comma-separated logins to narrow trust to (`--trusted-authors`). Empty keeps the CLI policy: verdicts from write-access users, never bots.                  |
 | `skip-copilot-review` | `false`         | **Deprecated.** Don't wait for requested bot reviewers (`--skip-copilot-review`). The CLI now waits only while a bot review request is pending, so drop it. |
-| `hold-checks`         | _(CLI default)_ | Required checks whose _pending_ is a human hold (`--hold-checks`; the CLI defaults to `pr-policy`).                                                         |
+| `hold-checks`         | _(CLI default)_ | Required checks whose _pending_ is a human hold (`--hold-checks`; the CLI defaults to `pr-policy`). Their failure still counts, so list their workflows under `workflow_run`. |
 | `ignore-checks`       | _(CLI default)_ | Required checks the CI gate never counts (`--ignore-checks`; the CLI defaults to `merge-safety`).                                                           |
 | `token-advisory`      | `true`          | Post a one-time advisory comment when an arm or merge is skipped for want of `token`; `false` passes `--no-token-advisory`.                                 |
 | `dry-run`             | `false`         | Gather and plan, but write nothing (`--dry-run`).                                                                                                           |
