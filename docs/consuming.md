@@ -1,7 +1,7 @@
 ---
 type: Guidance
 title: Consuming the action
-description: How a repo calls pr-lifecycle-action — the caller workflow, its triggers and permissions, the inputs and outputs, the real-actor token, and the prerequisites before arming auto-merge.
+description: How a repo calls pr-lifecycle-action — the caller workflow, its triggers and permissions, the inputs and outputs, the real-actor token, an App token for github-token with its self-trigger guard, and the prerequisites before arming auto-merge.
 tags: [action, consuming, inputs, outputs, permissions, triggers]
 ---
 
@@ -193,6 +193,54 @@ with the `token` input, and never falls back to `github-token`:
 
 Because the token only arms, merges, and updates branches, the workflow `GITHUB_TOKEN` never needs
 `contents: write`.
+
+## An App token for `github-token`
+
+By default every read and every label write uses the workflow's `GITHUB_TOKEN`,
+so labels show as `github-actions[bot]`. Passing an App installation token as
+`github-token` as well attributes those writes to the App's bot account and moves
+the reads onto the App's rate-limit pool. Mint it with the permissions the caller
+would otherwise grant `GITHUB_TOKEN`, and set `permissions: {}`:
+
+```yaml
+permissions: {}
+
+jobs:
+  reconcile:
+    if: >-
+      (github.event_name != 'pull_request_review' ||
+      github.event.pull_request.head.repo.full_name == github.repository) &&
+      !(github.event_name == 'pull_request_target' &&
+      github.event.sender.login == '<app-slug>[bot]' &&
+      contains(fromJSON('["labeled", "unlabeled", "review_requested", "review_request_removed"]'),
+      github.event.action))
+    # ...runs-on, timeout-minutes, concurrency as in the caller above
+    steps:
+      - uses: actions/create-github-app-token@<sha> # vX.Y.Z
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+          permission-contents: read # use write if the same token is also `token`
+          permission-checks: read
+          permission-statuses: read
+          permission-actions: write
+      - uses: rmartz/pr-lifecycle-action@<sha> # vX.Y.Z
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+```
+
+**Guard against self-triggering.** Events caused by `GITHUB_TOKEN` trigger no
+workflows, but App-authored events do: each label or review request the action
+writes fires a fresh `pull_request_target` run, which cancels the in-flight
+writer through the concurrency group and then no-ops. The extended `if:` above
+skips the `labeled`, `unlabeled`, `review_requested`, and
+`review_request_removed` events the App itself sends. Keep the exclusion to the
+App's own login, so a label from a person or another workflow still
+re-reconciles. The App needs the same secrets setup as the
+[real-actor token](#the-real-actor-token), including Dependabot secrets, since
+here even labelling fails without it.
 
 ## Before you arm auto-merge
 
