@@ -23,10 +23,12 @@ up.
    [`dependabot-release-type`](../../.github/workflows/dependabot-release-type.yml)
    workflow rewrites that title to mirror the CLI's semver bump — see the
    [versioning policy](versioning.md).
-3. **Auto-merge.** The [`bot-automerge`](../../.github/workflows/bot-automerge.yml)
-   caller enables native auto-merge on the patch/minor bump. It lands once the
+3. **Auto-merge.** The [`pr-lifecycle`](../../.github/workflows/pr-lifecycle.yml)
+   caller (this repo dogfooding its own action) arms native auto-merge on the
+   patch/minor bump, which counts as approved without review under
+   [bot-PR eligibility](https://github.com/rmartz/pr-lifecycle/blob/main/docs/bot-eligibility.md). It lands once the
    required checks pass — CI plus the
-   [`merge-safety`](https://github.com/rmartz/merge-safety) verdict. It enables
+   [`merge-safety`](https://github.com/rmartz/merge-safety) verdict. It arms
    auto-merge with an installation token for the `rmartz-merge-bot` GitHub App,
    minted per run from the `MERGE_BOT_CLIENT_ID` / `MERGE_BOT_PRIVATE_KEY` secrets
    (each an Actions **and** a Dependabot secret): a merge enabled with

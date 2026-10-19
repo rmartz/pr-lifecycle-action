@@ -47,7 +47,7 @@ The action is [`action.yml`](action.yml); its reconcile step is
 This repo is held to the shared
 [repository checklist](https://github.com/rmartz/ai/blob/main/docs/guidance/repository-checklist.md)
 and **self-manages** its own config: fix conformance gaps directly here, in a PR.
-The `repo-hygiene`, `merge-safety`, and `bot-automerge` callers are SHA-pinned and
+The `repo-hygiene` and `merge-safety` callers are SHA-pinned and
 bumped by Dependabot; CI, the `commit-convention` tripwire, labels,
 `dependabot.yml`, and the squash-merge setting are owned here. The
 [`pr-policy`](.github/workflows/pr-policy.yml) caller runs `rmartz/pr-policy-action`
@@ -56,8 +56,8 @@ to user-test. Its `title` check validates PR titles (Conventional Commits,
 breaking-marker and type rules), so there is no separate PR-title-lint workflow.
 The [`pr-lifecycle`](.github/workflows/pr-lifecycle.yml) caller dogfoods this
 repo's own **published** action (SHA-pinned, Dependabot-bumped — never a local
-`./` ref). It labels PRs only for now; `bot-automerge` still arms eligible bot PRs
-until pr-lifecycle takes over arming
+`./` ref). It labels PRs and arms auto-merge when one reaches `approved`,
+including an eligible Dependabot bump; it replaced the `bot-automerge` caller
 ([rmartz/pr-lifecycle#10](https://github.com/rmartz/pr-lifecycle/issues/10)).
 
 ## Common commands
