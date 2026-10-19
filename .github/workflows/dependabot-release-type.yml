@@ -19,7 +19,7 @@ name: dependabot-release-type
 #
 # Fires only on `opened`/`reopened` (never `synchronize`), so a later Dependabot
 # rebase does not re-apply a marker over a deliberate human downgrade. Editing a bot
-# PR needs base-context write, so — like bot-automerge.yml — this runs on
+# PR needs base-context write, so — like pr-lifecycle.yml — this runs on
 # `pull_request_target` with `pull-requests: write`. Detection uses
 # dependabot/fetch-metadata's structured outputs (never title parsing), gated to the
 # npm ecosystem + the exact wrapped package, so a bump of any other dependency (a

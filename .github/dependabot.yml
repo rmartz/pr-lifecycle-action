@@ -70,7 +70,7 @@ updates:
           - minor
           - patch
       # @rmartz/pr-lifecycle is the only production dep; its patch/minor bump is
-      # what bot-automerge auto-merges and, titled `fix(deps)`, maps to a patch
+      # what pr-lifecycle auto-merges and, titled `fix(deps)`, maps to a patch
       # release, so the bump cuts a new action release. A major bump falls out to
       # its own PR (not auto-merged) for a human to review.
       production-dependencies:

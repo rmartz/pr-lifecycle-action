@@ -5,10 +5,15 @@ name: pr-lifecycle
 # by SHA and bumped by Dependabot — never a local `./` ref, so this exercises
 # exactly the path consumers use. The caller follows docs/consuming.md.
 #
-# Labels only for now (step 1 of #10): `arm-auto-merge` is off and no real-actor
-# `token` is passed, so this never arms, merges, disarms, or updates a branch, and
-# bot-automerge.yml still enables auto-merge on eligible bot PRs. Arming is turned
-# on, and bot-automerge retired, in later PRs once the labels are verified.
+# It also arms GitHub-native auto-merge when a PR reaches `approved`, including
+# an eligible Dependabot PR (this replaced bot-automerge.yml), and with
+# `auto-update` brings an approved PR that merge-safety labels `update required`
+# current with update-branch. A Dependabot PR is never updated: a person or
+# Dependabot itself rebases it.
+#
+# SAFETY: auto-merge lands the moment the default-branch ruleset's required
+# checks pass (Test, Format, hygiene, release-check, merge-safety, pr-policy).
+# This is only safe while those checks are REQUIRED on main.
 #
 # Every read and write goes through an installation token for the
 # rmartz-merge-bot GitHub App, not GITHUB_TOKEN, so labels are attributed to the
@@ -91,12 +96,21 @@ jobs:
         with:
           client-id: ${{ secrets.MERGE_BOT_CLIENT_ID }}
           private-key: ${{ secrets.MERGE_BOT_PRIVATE_KEY }}
-          permission-pull-requests: write # labels, review requests
-          permission-contents: read # branch rules, base head, commits for approval carry-over
+          permission-pull-requests: write # labels, review requests, arming, merging
+          # Write, not read: merging and update-branch push to the repository.
+          # Reads (branch rules, base head, carry-over commits) need only read.
+          permission-contents: write
           permission-checks: read # the CI gate
           permission-statuses: read # the CI gate
           permission-actions: write # report a transient failure as a cancelled run
-      - uses: rmartz/pr-lifecycle-action@1916e94c1956f3cef31ac6496a03ffb3d4824f33 # v4.2.1
+      - uses: rmartz/pr-lifecycle-action@dde7cfcc50817551ff06523dff0497609127c027 # v4.2.2
         with:
+          # The App token is also the real actor (`token`) that arms, merges, and
+          # updates branches: a merge armed with GITHUB_TOKEN fires no `on: push`
+          # workflows, so release.yml would never run, and a branch update pushed
+          # with it runs no CI. Without `token`, arming and updating are skipped,
+          # never done with GITHUB_TOKEN.
           github-token: ${{ steps.app-token.outputs.token }}
-          arm-auto-merge: false
+          token: ${{ steps.app-token.outputs.token }}
+          arm-auto-merge: true
+          auto-update: true

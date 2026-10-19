@@ -11,7 +11,7 @@ name: Release
 # .releaserc.json.
 #
 # The key cadence: a Dependabot `fix(deps): bump @rmartz/pr-lifecycle …` PR is
-# auto-merged by bot-automerge, and the conventionalcommits preset maps `fix` →
+# auto-merged by pr-lifecycle, and the conventionalcommits preset maps `fix` →
 # patch, so that CLI bump cuts a new action release. Consumers then pick it up via
 # their own Dependabot github-actions ecosystem.
 
