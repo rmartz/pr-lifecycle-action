@@ -58,8 +58,8 @@ inputs:
   auto-update:
     description: >-
       Bring an approved PR that merge-safety labels `update required` up to date
-      with its base (true | false). Dependabot PRs are asked to rebase instead
-      of being updated. Needs the token input.
+      with its base (true | false). Dependabot PRs are never updated: a person or
+      Dependabot itself rebases them. Needs the token input.
     required: false
     default: 'false'
   skip-copilot-review:
@@ -136,7 +136,7 @@ outputs:
     description: 'JSON object { cleanAncestors, stoppedBecause } for approval carry-over, or empty when it did not run.'
     value: ${{ steps.reconcile.outputs.carry-over }}
   update:
-    description: 'The branch update performed: update-branch, dependabot-rebase, or none.'
+    description: 'The branch update performed: update-branch or none.'
     value: ${{ steps.reconcile.outputs.update }}
   update-skipped:
     description: 'JSON object { action, reason } when a branch update was skipped, else empty.'
