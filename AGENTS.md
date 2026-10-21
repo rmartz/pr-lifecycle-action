@@ -56,8 +56,10 @@ to user-test. Its `title` check validates PR titles (Conventional Commits,
 breaking-marker and type rules), so there is no separate PR-title-lint workflow.
 The [`pr-lifecycle`](.github/workflows/pr-lifecycle.yml) caller dogfoods this
 repo's own **published** action (SHA-pinned, Dependabot-bumped — never a local
-`./` ref). It labels PRs and arms auto-merge when one reaches `approved`,
-including an eligible Dependabot bump; it replaced the `bot-automerge` caller
+`./` ref) with `uat: 'off'`. It labels PRs, posts the `pr-lifecycle/sign-off`
+status the `pr-policy` caller re-runs on, and arms auto-merge when one reaches
+`approved`, including an eligible Dependabot bump; it replaced the
+`bot-automerge` caller
 ([rmartz/pr-lifecycle#10](https://github.com/rmartz/pr-lifecycle/issues/10)).
 
 ## Common commands
