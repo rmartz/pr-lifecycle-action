@@ -1,8 +1,8 @@
 ---
 type: Guidance
 title: Consuming the action
-description: How a repo calls pr-lifecycle-action — the caller workflow, its triggers and permissions, the inputs and outputs, the real-actor token, an App token for github-token with its self-trigger guard, and the prerequisites before arming auto-merge.
-tags: [action, consuming, inputs, outputs, permissions, triggers]
+description: How a repo calls pr-lifecycle-action — the caller workflow, its triggers and permissions, the inputs and outputs, the real-actor token, the uat setting and the pr-lifecycle/sign-off status, moving off pr-policy-action's skip-uat, an App token for github-token with its self-trigger guard, and the prerequisites before arming auto-merge.
+tags: [action, consuming, inputs, outputs, permissions, triggers, uat, sign-off]
 ---
 
 # Consuming the action
@@ -27,6 +27,8 @@ on:
       - converted_to_draft
       - synchronize
       - edited
+      # A person's sign-off label (`no UAT needed`, `UAT passed`, `CI change
+      # approved`) is reconciled straight away; see "UAT and the sign-off status".
       - labeled
       - unlabeled
       # A bot review request added (or removed by hand) after a run's settle
@@ -77,17 +79,12 @@ jobs:
         github.event.workflow_run.head_sha || github.event.check_suite.head_sha }}
       cancel-in-progress: true
     steps:
-      # Mint a short-lived GitHub App installation token for the `token` input
-      # (see "The real-actor token" below). Store the App's Client ID and private
-      # key as both Actions and Dependabot secrets.
-      - uses: actions/create-github-app-token@<sha> # vX.Y.Z
-        id: app-token
-        with:
-          client-id: ${{ secrets.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: rmartz/pr-lifecycle-action@<sha> # vX.Y.Z
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          # A person's fine-grained PAT, stored as both an Actions and a
+          # Dependabot secret (see "The real-actor token" below).
+          token: ${{ secrets.PR_LIFECYCLE_TOKEN }}
+          uat: 'on' # `off` for a repo with nothing to user-test
 ```
 
 Pin the action by full commit SHA and let Dependabot's `github-actions` ecosystem
@@ -127,38 +124,43 @@ calling the CLI. Set `pr` explicitly only to override this.
 | --------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pr`                  | _(event)_       | PR number to reconcile; see above.                                                                                                                                                                                                                                                  |
 | `github-token`        | `github.token`  | The CLI's `GITHUB_TOKEN`: every read and every label, review-request, and comment write.                                                                                                                                                                                            |
-| `token`               | _(empty)_       | Real-actor token, exported as `PR_LIFECYCLE_TOKEN`, used **only** to arm, merge, and update branches. See [the token](#the-real-actor-token).                                                                                                                                       |
+| `token`               | _(empty)_       | Real-actor token, exported as `PR_LIFECYCLE_TOKEN`, used **only** to arm, merge, update branches, and post the [sign-off status](#uat-and-the-sign-off-status). See [the token](#the-real-actor-token).                                                                             |
+| `uat`                 | `on`            | The repo's UAT setting, `on` or `off` (`--uat`). See [UAT and the sign-off status](#uat-and-the-sign-off-status).                                                                                                                                                                   |
 | `arm-auto-merge`      | `false`         | Arm, merge, or disarm auto-merge from the lifecycle state (`--arm-auto-merge`).                                                                                                                                                                                                     |
 | `auto-update`         | `false`         | Bring an approved PR that merge-safety labels `update required` up to date with its base; a Dependabot PR is never updated, so a person or Dependabot rebases it ([why](https://github.com/rmartz/pr-lifecycle/blob/main/docs/github-edge-layer.md#auto-update)) (`--auto-update`). |
 | `trusted-authors`     | _(empty)_       | Comma-separated logins to narrow trust to (`--trusted-authors`). Empty keeps the CLI policy: verdicts from write-access users, never bots.                                                                                                                                          |
 | `skip-copilot-review` | `false`         | **Deprecated.** Don't wait for requested bot reviewers (`--skip-copilot-review`). The CLI now waits only while a bot review request is pending, so drop it.                                                                                                                         |
 | `hold-checks`         | _(CLI default)_ | Required checks whose _pending_ is a human hold (`--hold-checks`; the CLI defaults to `pr-policy`). A failure still counts.                                                                                                                                                         |
 | `ignore-checks`       | _(CLI default)_ | Required checks the CI gate never counts (`--ignore-checks`; the CLI defaults to `merge-safety`).                                                                                                                                                                                   |
-| `token-advisory`      | `true`          | Post a one-time advisory comment when an arm or merge is skipped for want of `token`; `false` passes `--no-token-advisory`.                                                                                                                                                         |
+| `token-advisory`      | `true`          | Post a one-time advisory comment when an arm, merge, or the sign-off status is skipped for want of `token`; `false` passes `--no-token-advisory`.                                                                                                                                   |
 | `dry-run`             | `false`         | Gather and plan, but write nothing (`--dry-run`).                                                                                                                                                                                                                                   |
 | `node-version`        | `22`            | Node.js version to run the CLI under.                                                                                                                                                                                                                                               |
 
-Boolean inputs must be exactly `true` or `false`; anything else fails the run. The
-list inputs are passed only when non-empty, so an empty value keeps the CLI
-default. There is deliberately no way to make `trusted-authors` trust everyone.
+Boolean inputs must be exactly `true` or `false`, and `uat` exactly `on` or `off`;
+anything else fails the run. Quote the `uat` value (`uat: 'off'`): a YAML 1.1
+parser reads a bare `off` as `false`. The list inputs are passed only when
+non-empty, so an empty value keeps the CLI default. There is deliberately no way to make `trusted-authors` trust everyone.
 
 ## Outputs
 
-| Output               | Value                                                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `results`            | JSON array of the CLI's result for every PR reconciled (`[]` when none).                                                  |
-| `result`             | The full result object as compact JSON.                                                                                   |
-| `schema-version`     | Always `1`: the action fails on any other `schemaVersion`.                                                                |
-| `state`              | The lifecycle state (e.g. `approved`, `awaiting-ci`, `awaiting-bot-review`). Treat values you don't know as non-terminal. |
-| `add-labels`         | JSON array of labels added.                                                                                               |
-| `remove-labels`      | JSON array of labels removed.                                                                                             |
-| `auto-merge`         | `arm`, `merge`, `disarm`, or `none`.                                                                                      |
-| `auto-merge-skipped` | JSON `{ "action": "arm" \| "merge", "reason": "token-missing" }`, or empty.                                               |
-| `bot-eligible`       | `true` or `false`.                                                                                                        |
-| `bot-eligibility`    | JSON `{ eligible, reason, prType, updateType }`.                                                                          |
-| `carry-over`         | JSON `{ cleanAncestors, stoppedBecause }` for approval carry-over, or empty when it didn't run.                           |
-| `update`             | The branch update performed: `update-branch` or `none`.                                                                   |
-| `update-skipped`     | JSON `{ "action": "update-branch", "reason": "token-missing" }`, or empty.                                                |
+| Output                    | Value                                                                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `results`                 | JSON array of the CLI's result for every PR reconciled (`[]` when none).                                                   |
+| `result`                  | The full result object as compact JSON.                                                                                    |
+| `schema-version`          | Always `1`: the action fails on any other `schemaVersion`.                                                                 |
+| `state`                   | The lifecycle state (e.g. `approved`, `awaiting-ci`, `awaiting-bot-review`). Treat values you don't know as non-terminal.  |
+| `add-labels`              | JSON array of labels added.                                                                                                |
+| `remove-labels`           | JSON array of labels removed.                                                                                              |
+| `auto-merge`              | `arm`, `merge`, `disarm`, or `none`.                                                                                       |
+| `auto-merge-skipped`      | JSON `{ "action": "arm" \| "merge", "reason": "token-missing" }`, or empty.                                                |
+| `bot-eligible`            | `true` or `false`.                                                                                                         |
+| `bot-eligibility`         | JSON `{ eligible, reason, prType, updateType }`.                                                                           |
+| `carry-over`              | JSON `{ cleanAncestors, stoppedBecause }` for approval carry-over, or empty when it didn't run.                            |
+| `update`                  | The branch update performed: `update-branch` or `none`.                                                                    |
+| `update-skipped`          | JSON `{ "action": "update-branch", "reason": "token-missing" }`, or empty.                                                 |
+| `uat`                     | JSON `{ outcome, label }` for the PR's one UAT label, or empty when it has none (a closed PR, or one needing CI sign-off). |
+| `sign-off`                | JSON `{ requirement, reason, loosening, status, statusPosted }` for the sign-off status, or empty for a closed PR.         |
+| `sign-off-status-skipped` | JSON `{ "reason": "token-missing" }`, or empty.                                                                            |
 
 Every output but `results` describes a single PR, so it is set only when exactly
 one PR was reconciled. The field meanings are the CLI's; see its
@@ -168,31 +170,80 @@ one PR was reconciled. The field meanings are the CLI's; see its
 
 A merge made with `GITHUB_TOKEN` — including one GitHub performs because
 `GITHUB_TOKEN` armed auto-merge — triggers no `on: push` workflows, so your release
-pipeline would never run. The CLI therefore arms, merges, and updates branches only
-with the `token` input, and never falls back to `github-token`:
+pipeline would never run, and a status created with `GITHUB_TOKEN` triggers no
+workflow, so pr-policy would never re-run. The CLI therefore arms, merges, updates
+branches, and posts the [sign-off status](#uat-and-the-sign-off-status) only with
+the `token` input, and never falls back to `github-token`:
 
-- **Recommended: a GitHub App installation token.** Create a GitHub App with
-  **Contents: read and write** and **Pull requests: read and write**, install it
-  on the repository, and mint a short-lived installation token each run with
-  [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token),
-  passing `steps.app-token.outputs.token` as `token` (see [the caller](#the-caller)).
-  App-authored merges still trigger `on: push` workflows, the App draws on its
-  own rate-limit pool, and merges are attributed to the App's bot account.
-- **Still supported: a fine-grained PAT** with the same two permissions, passed
-  as `token: ${{ secrets.PR_LIFECYCLE_TOKEN }}`. GitHub rate-limits per user
-  across all of a user's tokens, so a PAT shares its owner's pool with
-  everything else they run (another automation can exhaust it and fail this
-  job), and every arm, merge, and branch update is attributed to that user.
-- **Where to store the credentials:** as **Actions** secrets (the App's Client ID
-  and private key, or the PAT), and also as **Dependabot** secrets if bot PRs
-  should auto-merge — a run Dependabot triggers sees only Dependabot secrets.
+- **A person's fine-grained PAT**, passed as
+  `token: ${{ secrets.PR_LIFECYCLE_TOKEN }}`, with these repository permissions:
+  - **Contents: read and write** (merge, update a branch);
+  - **Pull requests: read and write** (arm and disarm auto-merge);
+  - **Commit statuses: read and write** (the sign-off status).
+
+  pr-policy accepts the sign-off status only from a `User` with write access,
+  since any workflow can post as `github-actions[bot]`. A GitHub App
+  installation token reads as a bot too, so it can arm and merge, but pr-policy
+  rejects its status and holds every PR. Every write is attributed to the PAT's
+  owner, and it shares that user's rate-limit pool with everything else they
+  run.
+
+- **A GitHub App installation token** is only an option in a repo that doesn't
+  run pr-policy. Give the App the first two permissions, install it, and mint a
+  token each run with
+  [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token).
+  It has its own rate-limit pool, and merges are attributed to its bot account.
+- **Where to store the credentials:** as an **Actions** secret, and also as a
+  **Dependabot** secret: a run Dependabot triggers sees only Dependabot secrets,
+  and its PRs need the sign-off status too.
 - **When it's missing:** the run still succeeds and labels converge, but the arm,
-  merge, or branch update is skipped. The job log shows a warning,
-  `auto-merge-skipped` or `update-skipped` is set, and the CLI posts one advisory
-  comment on the PR (unless `token-advisory: false`).
+  merge, branch update, and sign-off status are skipped. The job log shows a
+  warning, `auto-merge-skipped`, `update-skipped`, or `sign-off-status-skipped`
+  is set, and the CLI posts one advisory comment on the PR (unless
+  `token-advisory: false`). With no sign-off status, pr-policy fails closed and
+  holds the PR.
 
-Because the token only arms, merges, and updates branches, the workflow `GITHUB_TOKEN` never needs
-`contents: write`.
+Because only the token makes these writes, the workflow `GITHUB_TOKEN` never needs
+`contents: write` or `statuses: write`.
+
+## UAT and the sign-off status
+
+pr-lifecycle decides which human sign-off each PR head needs: none, the CI
+sign-off (`CI change approved`), or UAT. It posts that decision as the
+`pr-lifecycle/sign-off` commit status, which pr-policy gates on. The status is
+the machine contract between the two; the labels are for people. Its grammar, the
+classification rules, and when it is posted are in pr-lifecycle's
+[sign-off status](https://github.com/rmartz/pr-lifecycle/blob/main/docs/sign-off-status.md)
+reference.
+
+- **`uat: 'on'`** (the default) keeps exactly one of `no UAT needed`,
+  `UAT pending`, `UAT ready`, or `UAT passed` on each open PR. A PR that needs
+  UAT shows `UAT pending` until a trusted person signs it off; one that can't be
+  user-facing (a `docs`/`test`/`refactor` title, or only statically safe paths)
+  gets `no UAT needed`. See pr-lifecycle's
+  [UAT labels](https://github.com/rmartz/pr-lifecycle/blob/main/docs/uat.md).
+- **`uat: 'off'`** labels every PR `no UAT needed` and posts
+  `requirement=none`, except a `ci:` PR that needs the CI sign-off.
+- **Set it in the caller on the base branch.** The caller runs on
+  `pull_request_target`, so GitHub reads the workflow, and with it the `uat`
+  value, from the base branch: a PR can't turn UAT off for itself.
+- **Keep `labeled` and `unlabeled` in the triggers.** A person's sign-off label
+  (`no UAT needed`, `UAT passed`, `CI change approved`) changes the status, so
+  it is reconciled as soon as it's applied, not at the next push or CI run.
+- **The `token` input is required for the gate to pass.** See
+  [the real-actor token](#the-real-actor-token).
+
+### Moving off pr-policy-action's `skip-uat`
+
+pr-lifecycle now owns the UAT setting, and pr-policy-action's `skip-uat` input is
+being retired. In a repo whose pr-policy caller sets `skip-uat: true`:
+
+1. Pass `uat: 'off'` to this action in `.github/workflows/pr-lifecycle.yml`, and make
+   sure its `token` is a PAT with **Commit statuses: read and write** (above).
+2. Once a run has posted `pr-lifecycle/sign-off` on open PRs, remove `skip-uat`
+   from `.github/workflows/pr-policy.yml`.
+
+A repo that never set `skip-uat` keeps the default, `uat: 'on'`.
 
 ## An App token for `github-token`
 
@@ -222,13 +273,14 @@ jobs:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-pull-requests: write
-          permission-contents: read # use write if the same token is also `token`
+          permission-contents: read
           permission-checks: read
           permission-statuses: read
           permission-actions: write
       - uses: rmartz/pr-lifecycle-action@<sha> # vX.Y.Z
         with:
           github-token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.PR_LIFECYCLE_TOKEN }} # still a person's PAT
 ```
 
 **Guard against self-triggering.** Events caused by `GITHUB_TOKEN` trigger no
@@ -238,9 +290,10 @@ writer through the concurrency group and then no-ops. The extended `if:` above
 skips the `labeled`, `unlabeled`, `review_requested`, and
 `review_request_removed` events the App itself sends. Keep the exclusion to the
 App's own login, so a label from a person or another workflow still
-re-reconciles. The App needs the same secrets setup as the
+re-reconciles. The App's credentials need the same secrets setup as the
 [real-actor token](#the-real-actor-token), including Dependabot secrets, since
-here even labelling fails without it.
+here even labelling fails without them. Keep `token` a person's PAT: the App's
+bot identity can't post a sign-off status pr-policy accepts.
 
 ## Before you arm auto-merge
 

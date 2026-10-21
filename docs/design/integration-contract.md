@@ -45,7 +45,12 @@ How a repo calls the action is in [Consuming the action](../consuming.md).
    - **fails loudly on any `schemaVersion` other than `1`**, rather than guessing at
      a shape it doesn't know;
    - writes the fields as step outputs, and surfaces `carryOver.stoppedBecause`,
-     `autoMergeSkipped`, and `updateSkipped` in the job log.
+     `autoMergeSkipped`, `updateSkipped`, and `signOffStatusSkipped` in the job
+     log.
+
+`uat` is the one non-boolean, non-list input: the script rejects anything but
+`on` or `off`, and always passes `--uat`, so the action's documented default is
+the one that applies.
 
 The `state` output passes the CLI's value through unchanged, so a CLI rename
 reaches consumers as-is: CLI 8.0.0 renamed `awaiting-copilot` to
@@ -83,8 +88,9 @@ into this repo. This is how CI completing on GitHub Actions — which never fire
   place. The action offers no way to widen trust.
 - **It never checks out or runs PR code**, which is what makes running on
   `pull_request_target` with a write token safe.
-- **It never arms, merges, or updates a branch with `GITHUB_TOKEN`.** Only
-  `token` reaches `PR_LIFECYCLE_TOKEN`.
+- **It never arms, merges, updates a branch, or posts the
+  `pr-lifecycle/sign-off` status with `GITHUB_TOKEN`.** Only `token` reaches
+  `PR_LIFECYCLE_TOKEN`.
 
 ## Composite action only
 

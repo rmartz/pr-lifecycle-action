@@ -37,6 +37,15 @@ if ! flag token-advisory "${TOKEN_ADVISORY}"; then args+=(--no-token-advisory); 
 if [ -n "${TRUSTED_AUTHORS}" ]; then args+=(--trusted-authors "${TRUSTED_AUTHORS}"); fi
 if [ -n "${HOLD_CHECKS}" ]; then args+=(--hold-checks "${HOLD_CHECKS}"); fi
 if [ -n "${IGNORE_CHECKS}" ]; then args+=(--ignore-checks "${IGNORE_CHECKS}"); fi
+# Always passed, so the action's documented default is the one that applies. Like a
+# boolean, a typo fails the run rather than silently picking a setting.
+case "${UAT}" in
+  on | off) args+=(--uat "${UAT}") ;;
+  *)
+    echo "::error::input uat must be 'on' or 'off', got '${UAT}'"
+    exit 2
+    ;;
+esac
 
 # Print the PR numbers to reconcile, one per line: the `pr` input when set, else
 # whatever the event names. check_suite and workflow_run list their PRs in
@@ -121,6 +130,8 @@ for pr in ${prs}; do
     | "::warning::#\($pr): auto-merge \(.action) skipped (\(.reason)). Pass the token input (secrets.PR_LIFECYCLE_TOKEN); see docs/consuming.md."' <<<"${result}"
   jq -r '(.pr) as $pr | .updateSkipped // empty
     | "::warning::#\($pr): branch update \(.action) skipped (\(.reason)). Pass the token input (secrets.PR_LIFECYCLE_TOKEN); see docs/consuming.md."' <<<"${result}"
+  jq -r '(.pr) as $pr | .signOffStatusSkipped // empty
+    | "::warning::#\($pr): sign-off status skipped (\(.reason)), so pr-policy holds the PR. Pass the token input (secrets.PR_LIFECYCLE_TOKEN); see docs/consuming.md."' <<<"${result}"
 done
 
 # Every value is one line: scalars are plain strings, and objects and arrays are
@@ -142,7 +153,10 @@ if [ "${#results[@]}" -eq 1 ]; then
     "bot-eligibility=\(.botEligibility | tojson)",
     "carry-over=\(.carryOver | obj)",
     "update=\(.update)",
-    "update-skipped=\(.updateSkipped | obj)"' <<<"${results[0]}" >>"${GITHUB_OUTPUT}"
+    "update-skipped=\(.updateSkipped | obj)",
+    "uat=\(.uat | obj)",
+    "sign-off=\(.signOff | obj)",
+    "sign-off-status-skipped=\(.signOffStatusSkipped | obj)"' <<<"${results[0]}" >>"${GITHUB_OUTPUT}"
 fi
 
 # A transient failure is reported as a cancelled run, not a failed one: failure is

@@ -38,10 +38,13 @@ inputs:
     description: >-
       Real-actor token (a fine-grained PAT, conventionally the
       PR_LIFECYCLE_TOKEN secret) used only to arm, merge, and update branches,
-      so the merge re-triggers the consumer's on:push workflows. Exported as the
-      CLI's PR_LIFECYCLE_TOKEN. When empty, the CLI skips those (never falling
-      back to github-token) and reports it in auto-merge-skipped or
-      update-skipped.
+      so the merge re-triggers the consumer's on:push workflows, and to post the
+      pr-lifecycle/sign-off commit status that pr-policy gates on. pr-policy
+      trusts that status only from a person, so it must be a PAT, not an App
+      token. Exported as the CLI's PR_LIFECYCLE_TOKEN. When empty, the CLI skips
+      those writes (never falling back to github-token) and reports them in
+      auto-merge-skipped, update-skipped, or sign-off-status-skipped; with no
+      status, pr-policy holds every PR.
     required: false
     default: ''
   arm-auto-merge:
@@ -84,10 +87,18 @@ inputs:
       default) keeps the CLI default.
     required: false
     default: ''
+  uat:
+    description: >-
+      The repo's UAT setting (on | off). on keeps one UAT label on each PR,
+      UAT pending until a person signs it off; off labels every PR no UAT
+      needed. Also decides the pr-lifecycle/sign-off status. Read from the
+      caller workflow on the base branch, so a PR can't turn UAT off for itself.
+    required: false
+    default: 'on'
   token-advisory:
     description: >-
-      Post a one-time advisory comment on the PR when arming or merging is
-      skipped because token is empty (true | false).
+      Post a one-time advisory comment on the PR when arming, merging, or the
+      sign-off status is skipped because token is empty (true | false).
     required: false
     default: 'true'
   dry-run:
@@ -141,6 +152,15 @@ outputs:
   update-skipped:
     description: 'JSON object { action, reason } when a branch update was skipped, else empty.'
     value: ${{ steps.reconcile.outputs.update-skipped }}
+  uat:
+    description: "JSON object { outcome, label } for the PR's UAT label, or empty when it has none."
+    value: ${{ steps.reconcile.outputs.uat }}
+  sign-off:
+    description: 'JSON object { requirement, reason, loosening, status, statusPosted } for the sign-off status, or empty for a closed PR.'
+    value: ${{ steps.reconcile.outputs.sign-off }}
+  sign-off-status-skipped:
+    description: 'JSON object { reason } when the sign-off status was skipped, else empty.'
+    value: ${{ steps.reconcile.outputs.sign-off-status-skipped }}
 
 runs:
   using: composite
@@ -172,6 +192,7 @@ runs:
         SKIP_COPILOT_REVIEW: ${{ inputs.skip-copilot-review }}
         HOLD_CHECKS: ${{ inputs.hold-checks }}
         IGNORE_CHECKS: ${{ inputs.ignore-checks }}
+        UAT: ${{ inputs.uat }}
         TOKEN_ADVISORY: ${{ inputs.token-advisory }}
         DRY_RUN: ${{ inputs.dry-run }}
       run: bash "${GITHUB_ACTION_PATH}/scripts/reconcile.sh"

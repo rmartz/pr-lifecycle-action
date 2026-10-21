@@ -30,6 +30,15 @@ const baseResult = {
   autoMergeSkipped: null,
   update: 'none',
   updateSkipped: null,
+  uat: { outcome: 'ready', label: 'UAT ready' },
+  signOff: {
+    requirement: 'uat',
+    reason: 'needs-uat',
+    loosening: false,
+    status: 'v1 requirement=uat waiver=absent',
+    statusPosted: true,
+  },
+  signOffStatusSkipped: null,
 };
 
 // The CLI stub logs its argv (one line per call) and prints STUB_RESULT with `pr`
@@ -93,6 +102,7 @@ function run({ env = {}, event, result = baseResult, gh = [] } = {}) {
       SKIP_COPILOT_REVIEW: 'false',
       HOLD_CHECKS: '',
       IGNORE_CHECKS: '',
+      UAT: 'on',
       TOKEN_ADVISORY: 'true',
       DRY_RUN: 'false',
       STUB_CLI_LOG: files.cliLog,
@@ -119,10 +129,10 @@ function run({ env = {}, event, result = baseResult, gh = [] } = {}) {
 }
 
 describe('invokes the pinned CLI with flags mapped 1:1 from the inputs', () => {
-  it('passes only --repo, --pr and --json with default inputs', () => {
+  it('passes only --repo, --pr, --json and --uat on with default inputs', () => {
     const r = run({ env: { PR_NUMBER: '7' } });
     assert.equal(r.status, 0);
-    assert.deepEqual(r.cliCalls, [`reconcile --pr 7 --repo ${REPO} --json`]);
+    assert.deepEqual(r.cliCalls, [`reconcile --pr 7 --repo ${REPO} --json --uat on`]);
   });
 
   it('maps every set input to its flag', () => {
@@ -137,13 +147,22 @@ describe('invokes the pinned CLI with flags mapped 1:1 from the inputs', () => {
         TRUSTED_AUTHORS: 'alice,bob',
         HOLD_CHECKS: 'pr-policy,uat',
         IGNORE_CHECKS: 'merge-safety',
+        UAT: 'off',
       },
     });
     assert.equal(r.status, 0);
     assert.deepEqual(r.cliCalls, [
       `reconcile --pr 7 --repo ${REPO} --json --arm-auto-merge --auto-update --skip-copilot-review --dry-run ` +
-        '--no-token-advisory --trusted-authors alice,bob --hold-checks pr-policy,uat --ignore-checks merge-safety',
+        '--no-token-advisory --trusted-authors alice,bob --hold-checks pr-policy,uat --ignore-checks merge-safety ' +
+        '--uat off',
     ]);
+  });
+
+  it('rejects a uat input that is not on/off without calling the CLI', () => {
+    const r = run({ env: { PR_NUMBER: '7', UAT: 'false' } });
+    assert.equal(r.status, 2);
+    assert.match(r.stdout, /::error::input uat must be 'on' or 'off', got 'false'/);
+    assert.deepEqual(r.cliCalls, []);
   });
 
   it('never passes an empty --trusted-authors (no trust-anyone path)', () => {
@@ -176,6 +195,9 @@ describe('exposes the --json fields as step outputs', () => {
     assert.equal(r.outputs['carry-over'], '');
     assert.equal(r.outputs.update, 'none');
     assert.equal(r.outputs['update-skipped'], '');
+    assert.deepEqual(JSON.parse(r.outputs.uat), baseResult.uat);
+    assert.deepEqual(JSON.parse(r.outputs['sign-off']), baseResult.signOff);
+    assert.equal(r.outputs['sign-off-status-skipped'], '');
   });
 
   it('serialises non-null objects and warns when arming was skipped', () => {
@@ -203,6 +225,29 @@ describe('exposes the --json fields as step outputs', () => {
     assert.equal(r.outputs.update, 'none');
     assert.deepEqual(JSON.parse(r.outputs['update-skipped']), result.updateSkipped);
     assert.match(r.stdout, /::warning::#7: branch update update-branch skipped \(token-missing\)/);
+  });
+
+  it('serialises a skipped sign-off status and warns that pr-policy holds the PR', () => {
+    const result = {
+      ...baseResult,
+      signOff: { ...baseResult.signOff, statusPosted: false },
+      signOffStatusSkipped: { reason: 'token-missing' },
+    };
+    const r = run({ env: { PR_NUMBER: '7' }, result });
+    assert.equal(r.status, 0);
+    assert.deepEqual(JSON.parse(r.outputs['sign-off-status-skipped']), result.signOffStatusSkipped);
+    assert.match(
+      r.stdout,
+      /::warning::#7: sign-off status skipped \(token-missing\), so pr-policy holds the PR/,
+    );
+  });
+
+  it('leaves the UAT and sign-off outputs empty when the CLI reports none (a closed PR)', () => {
+    const result = { ...baseResult, uat: null, signOff: null };
+    const r = run({ env: { PR_NUMBER: '7' }, result });
+    assert.equal(r.status, 0);
+    assert.equal(r.outputs.uat, '');
+    assert.equal(r.outputs['sign-off'], '');
   });
 });
 
@@ -290,17 +335,17 @@ describe('reports a transient CLI failure (exit 75) as a cancelled run', () => {
 describe('resolves the PR from the triggering event when pr is empty', () => {
   it('uses the pull_request payload', () => {
     const r = run({ event: { pull_request: { number: 12 } } });
-    assert.deepEqual(r.cliCalls, [`reconcile --pr 12 --repo ${REPO} --json`]);
+    assert.deepEqual(r.cliCalls, [`reconcile --pr 12 --repo ${REPO} --json --uat on`]);
   });
 
   it('uses a workflow_dispatch pr input', () => {
     const r = run({ event: { inputs: { pr: '13' } } });
-    assert.deepEqual(r.cliCalls, [`reconcile --pr 13 --repo ${REPO} --json`]);
+    assert.deepEqual(r.cliCalls, [`reconcile --pr 13 --repo ${REPO} --json --uat on`]);
   });
 
   it('prefers the explicit pr input over the event', () => {
     const r = run({ env: { PR_NUMBER: '7' }, event: { pull_request: { number: 12 } } });
-    assert.deepEqual(r.cliCalls, [`reconcile --pr 7 --repo ${REPO} --json`]);
+    assert.deepEqual(r.cliCalls, [`reconcile --pr 7 --repo ${REPO} --json --uat on`]);
   });
 
   it("reconciles each workflow_run PR into this repo, keeping only per-PR outputs' results", () => {
@@ -318,8 +363,8 @@ describe('resolves the PR from the triggering event when pr is empty', () => {
     });
     assert.equal(r.status, 0);
     assert.deepEqual(r.cliCalls, [
-      `reconcile --pr 20 --repo ${REPO} --json`,
-      `reconcile --pr 21 --repo ${REPO} --json`,
+      `reconcile --pr 20 --repo ${REPO} --json --uat on`,
+      `reconcile --pr 21 --repo ${REPO} --json --uat on`,
     ]);
     assert.deepEqual(r.ghCalls, []);
     assert.deepEqual(
@@ -340,7 +385,7 @@ describe('resolves the PR from the triggering event when pr is empty', () => {
     });
     assert.equal(r.status, 0);
     assert.deepEqual(r.ghCalls, [`api --paginate repos/${REPO}/commits/abc123/pulls`]);
-    assert.deepEqual(r.cliCalls, [`reconcile --pr 30 --repo ${REPO} --json`]);
+    assert.deepEqual(r.cliCalls, [`reconcile --pr 30 --repo ${REPO} --json --uat on`]);
   });
 
   it('succeeds with no CLI call when the event names no open PR', () => {
