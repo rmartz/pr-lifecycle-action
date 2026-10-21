@@ -18,18 +18,33 @@ How a repo calls the action is in [Consuming the action](../consuming.md).
 
 ## What the action does
 
-[`action.yml`](../../action.yml) has three steps:
+[`action.yml`](../../action.yml) has five steps:
 
-1. **Set up Node** at `node-version`.
-2. **Install the pinned CLI** with `npm ci --omit=dev --ignore-scripts` in
+1. **Resolve the real-actor token source** with
+   [`scripts/token-source.sh`](../../scripts/token-source.sh): `token`, `app`
+   (both App inputs set), `app-incomplete` (one set), or `none`. It sees only
+   whether each input is set, never a secret. `token` together with an App input
+   fails the run here, before anything else runs.
+2. **Create the App installation token** with `actions/create-github-app-token`
+   when the source is `app`: scoped to this repository, with Contents, Pull
+   requests, Issues, Commit statuses, and Workflows write and Checks read. The
+   step is `continue-on-error`, so an App that isn't installed or a bad key never
+   fails the job.
+3. **Set up Node** at `node-version`.
+4. **Install the pinned CLI** with `npm ci --omit=dev --ignore-scripts` in
    `$GITHUB_ACTION_PATH` — the action's own directory, never the consumer
    workspace. The action's [`.npmrc`](../../.npmrc) pins the `@rmartz` scope to
    npmjs, where the package is public, so the install needs no token.
-3. **Reconcile** with [`scripts/reconcile.sh`](../../scripts/reconcile.sh), which:
+5. **Reconcile** with [`scripts/reconcile.sh`](../../scripts/reconcile.sh), which:
    - maps each input 1:1 onto a CLI flag, rejecting a boolean that isn't `true`
      or `false`, and passing a list input only when it is non-empty;
-   - exports `github-token` as `GITHUB_TOKEN` and `token` as `PR_LIFECYCLE_TOKEN`
-     (`GITHUB_API_URL` comes from the runner);
+   - exports `github-token` as `GITHUB_TOKEN`, and `token` or else the App token
+     as `PR_LIFECYCLE_TOKEN` (`GITHUB_API_URL` comes from the runner);
+   - reports the final token source as the `token-source` output, turning `app`
+     into `app-failed` when step 2 failed or produced no token, and warns for
+     `app-failed` and `app-incomplete`. With no token the CLI reconciles labels
+     only, which is its long-standing behavior, so the fallback needs no CLI
+     change;
    - resolves the PR(s) when `pr` is empty (below);
    - runs the CLI by absolute path from `node_modules/.bin` with `--json`, once per
      PR, and fails the step if any run exits non-zero, except `75`;
@@ -60,8 +75,10 @@ was a major action release (see [versioning](versioning.md)). The deprecated
 `deprecationMessage` warns callers that set it.
 
 Its behaviour is pinned by hermetic tests in
-[`test/reconcile.test.mjs`](../../test/reconcile.test.mjs), which run the script
-against a stub CLI and a stub `gh`.
+[`test/reconcile.test.mjs`](../../test/reconcile.test.mjs) and
+[`test/token-source.test.mjs`](../../test/token-source.test.mjs), which run the
+scripts against a stub CLI and a stub `gh` (the shared harness is
+[`test/harness.mjs`](../../test/harness.mjs)).
 
 ## PR resolution
 
@@ -89,8 +106,11 @@ into this repo. This is how CI completing on GitHub Actions — which never fire
 - **It never checks out or runs PR code**, which is what makes running on
   `pull_request_target` with a write token safe.
 - **It never arms, merges, updates a branch, or posts the
-  `pr-lifecycle/sign-off` status with `GITHUB_TOKEN`.** Only `token` reaches
-  `PR_LIFECYCLE_TOKEN`.
+  `pr-lifecycle/sign-off` status with `GITHUB_TOKEN`.** Only `token` or the App
+  installation token reaches `PR_LIFECYCLE_TOKEN`; without either, those writes
+  are skipped.
+- **It never fails a run for a missing or unusable App.** Only `token` passed with
+  an App input, an unambiguous misconfiguration, fails it.
 
 ## Composite action only
 

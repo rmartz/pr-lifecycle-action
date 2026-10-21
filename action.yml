@@ -9,8 +9,10 @@ branding:
 # A composite action that wraps `pr-lifecycle reconcile` from the
 # @rmartz/pr-lifecycle CLI. The CLI owns every decision (lifecycle state, labels,
 # bot eligibility, fork trust, whether to arm or merge); this action only installs
-# the version pinned in its own package-lock.json, works out which PR(s) the event
-# is about, and invokes the CLI on each (scripts/reconcile.sh). The contract is
+# the version pinned in its own package-lock.json, creates the real-actor token
+# from a GitHub App when given one (falling back to labels only when it can't),
+# works out which PR(s) the event is about, and invokes the CLI on each
+# (scripts/token-source.sh, scripts/reconcile.sh). The contract is
 # documented in docs/design/integration-contract.md; the caller snippet, required
 # permissions, and triggers are in docs/consuming.md.
 #
@@ -36,15 +38,32 @@ inputs:
     default: ${{ github.token }}
   token:
     description: >-
-      Real-actor token (a fine-grained PAT, conventionally the
-      PR_LIFECYCLE_TOKEN secret) used only to arm, merge, and update branches,
-      so the merge re-triggers the consumer's on:push workflows, and to post the
-      pr-lifecycle/sign-off commit status that pr-policy gates on. pr-policy
-      trusts that status only from a person, so it must be a PAT, not an App
-      token. Exported as the CLI's PR_LIFECYCLE_TOKEN. When empty, the CLI skips
-      those writes (never falling back to github-token) and reports them in
-      auto-merge-skipped, update-skipped, or sign-off-status-skipped; with no
-      status, pr-policy holds every PR.
+      Real-actor token used only to arm, merge, and update branches, so the
+      merge re-triggers the consumer's on:push workflows, and to post the
+      pr-lifecycle/sign-off commit status that pr-policy gates on. Exported as
+      the CLI's PR_LIFECYCLE_TOKEN. Prefer app-client-id and app-private-key,
+      which create one here; pass token only for a token made elsewhere (a
+      person's PAT, say). Passing it with the App inputs fails the run. When no
+      real-actor token is available, the CLI skips those writes (never falling
+      back to github-token) and reports them in auto-merge-skipped,
+      update-skipped, or sign-off-status-skipped; with no status, pr-policy
+      holds every PR.
+    required: false
+    default: ''
+  app-client-id:
+    description: >-
+      Client ID of the GitHub App the action creates its real-actor token from,
+      conventionally the PR_LIFECYCLE_CLIENT_ID secret. With app-private-key, the
+      action creates an installation token for this repository and uses it as
+      token. If either is empty, or creating the token fails (the App isn't
+      installed here, or the key is wrong), the run carries on without a
+      real-actor token and says why. See docs/consuming.md.
+    required: false
+    default: ''
+  app-private-key:
+    description: >-
+      Private key of that GitHub App, conventionally the
+      PR_LIFECYCLE_PRIVATE_KEY secret. See app-client-id.
     required: false
     default: ''
   arm-auto-merge:
@@ -98,7 +117,8 @@ inputs:
   token-advisory:
     description: >-
       Post a one-time advisory comment on the PR when arming, merging, or the
-      sign-off status is skipped because token is empty (true | false).
+      sign-off status is skipped for want of a real-actor token (true | false).
+      The job log and the token-source output say which case it was.
     required: false
     default: 'true'
   dry-run:
@@ -111,6 +131,12 @@ inputs:
     default: '22'
 
 outputs:
+  token-source:
+    description: >-
+      Where the real-actor token came from: token, app, app-failed (creating
+      the App token failed), app-incomplete (only one App input was set), or
+      none.
+    value: ${{ steps.reconcile.outputs.token-source }}
   results:
     description: "JSON array of the CLI's --json result for every PR reconciled ([] when the event names no open PR)."
     value: ${{ steps.reconcile.outputs.results }}
@@ -165,6 +191,38 @@ outputs:
 runs:
   using: composite
   steps:
+    # Decide where the real-actor token comes from (scripts/token-source.sh).
+    # Only whether each input is set reaches the script, never a secret. A
+    # token passed alongside the App inputs fails here, before anything runs.
+    - name: Resolve the real-actor token source
+      id: token-source
+      shell: bash
+      env:
+        HAS_TOKEN: ${{ inputs.token != '' }}
+        HAS_APP_CLIENT_ID: ${{ inputs.app-client-id != '' }}
+        HAS_APP_PRIVATE_KEY: ${{ inputs.app-private-key != '' }}
+      run: bash "${GITHUB_ACTION_PATH}/scripts/token-source.sh"
+    # Create an installation token for this repository only, with the
+    # permissions the CLI's real-actor writes need. continue-on-error keeps a
+    # failure (the App isn't installed here, a bad key, a permission the App
+    # wasn't granted) from failing the job: the reconcile step sees the outcome,
+    # carries on without the token, and says why.
+    - name: Create the App installation token
+      id: app-token
+      if: steps.token-source.outputs.source == 'app'
+      continue-on-error: true
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        client-id: ${{ inputs.app-client-id }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ github.event.repository.name }}
+        permission-contents: write
+        permission-pull-requests: write
+        permission-issues: write
+        permission-statuses: write
+        permission-workflows: write
+        permission-checks: read
     - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: ${{ inputs.node-version }}
@@ -183,7 +241,9 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GH_TOKEN: ${{ inputs.github-token }}
-        PR_LIFECYCLE_TOKEN: ${{ inputs.token }}
+        PR_LIFECYCLE_TOKEN: ${{ inputs.token || steps.app-token.outputs.token }}
+        TOKEN_SOURCE: ${{ steps.token-source.outputs.source }}
+        APP_TOKEN_OUTCOME: ${{ steps.app-token.outcome }}
         REPO: ${{ github.repository }}
         PR_NUMBER: ${{ inputs.pr }}
         ARM_AUTO_MERGE: ${{ inputs.arm-auto-merge }}

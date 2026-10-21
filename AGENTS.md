@@ -67,7 +67,7 @@ including an eligible Dependabot bump; it replaced the `bot-automerge` caller
 npm ci                 # install deps (all from npmjs, no auth needed)
 npm run format:check   # prettier --check .
 npm run format         # prettier --write .
-npm test               # node --test: hermetic tests of scripts/reconcile.sh
+npm test               # node --test: hermetic tests of scripts/*.sh
 ```
 
 There is no build step. The reconciler logic lives in `@rmartz/pr-lifecycle`; the
