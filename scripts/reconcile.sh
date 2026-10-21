@@ -47,6 +47,25 @@ case "${UAT}" in
     ;;
 esac
 
+# Where the real-actor token came from (scripts/token-source.sh decided before the
+# App-token step ran). A missing token is never fatal: the CLI skips the writes
+# that need it and reports them. The warning says why, since a labels-only run
+# that was meant to arm is otherwise easy to miss.
+token_source="${TOKEN_SOURCE:-none}"
+if [ "${token_source}" = "app" ] && { [ "${APP_TOKEN_OUTCOME:-}" != "success" ] || [ -z "${PR_LIFECYCLE_TOKEN:-}" ]; }; then
+  token_source=app-failed
+fi
+case "${token_source}" in
+  app-failed)
+    echo "::warning::creating the App installation token failed (see the step above: is the App installed on this repository, and are app-client-id and app-private-key its own?). Reconciling labels only; arming, merging, updating, and the sign-off status are skipped."
+    ;;
+  app-incomplete)
+    echo "::warning::only one of app-client-id and app-private-key is set, so no App token was created. Reconciling labels only; arming, merging, updating, and the sign-off status are skipped."
+    ;;
+  *) ;;
+esac
+echo "token-source=${token_source}" >>"${GITHUB_OUTPUT}"
+
 # Print the PR numbers to reconcile, one per line: the `pr` input when set, else
 # whatever the event names. check_suite and workflow_run list their PRs in
 # pull_requests[], which GitHub leaves empty for fork PRs, so an empty list falls
@@ -127,11 +146,11 @@ for pr in ${prs}; do
   jq -r '.carryOver.stoppedBecause // empty
     | "approval carry-over stopped: \(.)"' <<<"${result}"
   jq -r '(.pr) as $pr | .autoMergeSkipped // empty
-    | "::warning::#\($pr): auto-merge \(.action) skipped (\(.reason)). Pass the token input (secrets.PR_LIFECYCLE_TOKEN); see docs/consuming.md."' <<<"${result}"
+    | "::warning::#\($pr): auto-merge \(.action) skipped (\(.reason)). Pass app-client-id and app-private-key (or token); see docs/consuming.md#the-real-actor-token."' <<<"${result}"
   jq -r '(.pr) as $pr | .updateSkipped // empty
-    | "::warning::#\($pr): branch update \(.action) skipped (\(.reason)). Pass the token input (secrets.PR_LIFECYCLE_TOKEN); see docs/consuming.md."' <<<"${result}"
+    | "::warning::#\($pr): branch update \(.action) skipped (\(.reason)). Pass app-client-id and app-private-key (or token); see docs/consuming.md#the-real-actor-token."' <<<"${result}"
   jq -r '(.pr) as $pr | .signOffStatusSkipped // empty
-    | "::warning::#\($pr): sign-off status skipped (\(.reason)), so pr-policy holds the PR. Pass the token input (secrets.PR_LIFECYCLE_TOKEN); see docs/consuming.md."' <<<"${result}"
+    | "::warning::#\($pr): sign-off status skipped (\(.reason)), so pr-policy holds the PR. Pass app-client-id and app-private-key (or token); see docs/consuming.md#the-real-actor-token."' <<<"${result}"
 done
 
 # Every value is one line: scalars are plain strings, and objects and arrays are
