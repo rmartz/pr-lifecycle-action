@@ -101,7 +101,7 @@ jobs:
           # Reads (branch rules, base head, carry-over commits) need only read.
           permission-contents: write
           permission-checks: read # the CI gate
-          permission-statuses: read # the CI gate
+          permission-statuses: write # read: the CI gate; write: the pr-lifecycle/sign-off status
           permission-actions: write # report a transient failure as a cancelled run
       - uses: rmartz/pr-lifecycle-action@cb58fb834f4761dcf691d6801b8ba2e23316a04a # v4.3.0
         with:
