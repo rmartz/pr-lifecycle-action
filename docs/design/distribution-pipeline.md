@@ -29,8 +29,8 @@ up.
    [bot-PR eligibility](https://github.com/rmartz/pr-lifecycle/blob/main/docs/bot-eligibility.md). It lands once the
    required checks pass — CI plus the
    [`merge-safety`](https://github.com/rmartz/merge-safety) verdict. It arms
-   auto-merge with an installation token for the `rmartz-merge-bot` GitHub App,
-   minted per run from the `MERGE_BOT_CLIENT_ID` / `MERGE_BOT_PRIVATE_KEY` secrets
+   auto-merge with an installation token for the `rmartz-pr-lifecycle` GitHub App,
+   minted per run from the `PR_LIFECYCLE_CLIENT_ID` / `PR_LIFECYCLE_PRIVATE_KEY` secrets
    (each an Actions **and** a Dependabot secret): a merge enabled with
    `GITHUB_TOKEN` fires no `push` workflows, so step 4 would never run, whereas
    App-authored events do trigger them. The App also has its own rate-limit pool,
