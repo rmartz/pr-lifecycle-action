@@ -11,7 +11,8 @@ consuming repo. Written in [Open Knowledge Format](okf-format.md).
 - [What pr-lifecycle-action is](overview.md) — what the action does, its status,
   and the CLI version it pins.
 - [Consuming the action](consuming.md) — the caller workflow, triggers,
-  permissions, inputs, outputs, the real-actor token, the `uat` setting and the
+  permissions, inputs, outputs, the real-actor token (created from a GitHub App,
+  with a labels-only fallback), the `uat` setting and the
   `pr-lifecycle/sign-off` status, moving off `skip-uat`, and an App token for
   `github-token`.
 - [The OKF documentation format](okf-format.md) — how these pages are structured
