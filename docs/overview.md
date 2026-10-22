@@ -21,7 +21,7 @@ current; the rationale is recorded on
 
 ## Status
 
-**Early.** The action pins `@rmartz/pr-lifecycle` **11.4.0** in
+**Early.** The action pins an exact `@rmartz/pr-lifecycle` version in
 [`package.json`](../package.json). Labelling, UAT labels and the
 `pr-lifecycle/sign-off` status, `arm-auto-merge`, and `auto-update` are all
 usable; check [Before you arm auto-merge](consuming.md#before-you-arm-auto-merge)
