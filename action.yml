@@ -179,7 +179,7 @@ outputs:
     description: 'JSON object { action, reason } when a branch update was skipped, else empty.'
     value: ${{ steps.reconcile.outputs.update-skipped }}
   uat:
-    description: "JSON object { outcome, label } for the PR's UAT label, or empty when it has none."
+    description: "JSON object { outcome, label } for the PR's one UAT label, or empty for a closed PR."
     value: ${{ steps.reconcile.outputs.uat }}
   sign-off:
     description: 'JSON object { requirement, reason, loosening, status, statusPosted } for the sign-off status, or empty for a closed PR.'

@@ -147,25 +147,25 @@ non-empty, so an empty value keeps the CLI default. There is deliberately no way
 
 ## Outputs
 
-| Output                    | Value                                                                                                                      |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `token-source`            | Where the real-actor token came from: `token`, `app`, `app-failed`, `app-incomplete`, or `none`. Set on every run.         |
-| `results`                 | JSON array of the CLI's result for every PR reconciled (`[]` when none).                                                   |
-| `result`                  | The full result object as compact JSON.                                                                                    |
-| `schema-version`          | Always `1`: the action fails on any other `schemaVersion`.                                                                 |
-| `state`                   | The lifecycle state (e.g. `approved`, `awaiting-ci`, `awaiting-bot-review`). Treat values you don't know as non-terminal.  |
-| `add-labels`              | JSON array of labels added.                                                                                                |
-| `remove-labels`           | JSON array of labels removed.                                                                                              |
-| `auto-merge`              | `arm`, `merge`, `disarm`, or `none`.                                                                                       |
-| `auto-merge-skipped`      | JSON `{ "action": "arm" \| "merge", "reason": "token-missing" }`, or empty.                                                |
-| `bot-eligible`            | `true` or `false`.                                                                                                         |
-| `bot-eligibility`         | JSON `{ eligible, reason, prType, updateType }`.                                                                           |
-| `carry-over`              | JSON `{ cleanAncestors, stoppedBecause }` for approval carry-over, or empty when it didn't run.                            |
-| `update`                  | The branch update performed: `update-branch` or `none`.                                                                    |
-| `update-skipped`          | JSON `{ "action": "update-branch", "reason": "token-missing" }`, or empty.                                                 |
-| `uat`                     | JSON `{ outcome, label }` for the PR's one UAT label, or empty when it has none (a closed PR, or one needing CI sign-off). |
-| `sign-off`                | JSON `{ requirement, reason, loosening, status, statusPosted }` for the sign-off status, or empty for a closed PR.         |
-| `sign-off-status-skipped` | JSON `{ "reason": "token-missing" }`, or empty.                                                                            |
+| Output                    | Value                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `token-source`            | Where the real-actor token came from: `token`, `app`, `app-failed`, `app-incomplete`, or `none`. Set on every run.        |
+| `results`                 | JSON array of the CLI's result for every PR reconciled (`[]` when none).                                                  |
+| `result`                  | The full result object as compact JSON.                                                                                   |
+| `schema-version`          | Always `1`: the action fails on any other `schemaVersion`.                                                                |
+| `state`                   | The lifecycle state (e.g. `approved`, `awaiting-ci`, `awaiting-bot-review`). Treat values you don't know as non-terminal. |
+| `add-labels`              | JSON array of labels added.                                                                                               |
+| `remove-labels`           | JSON array of labels removed.                                                                                             |
+| `auto-merge`              | `arm`, `merge`, `disarm`, or `none`.                                                                                      |
+| `auto-merge-skipped`      | JSON `{ "action": "arm" \| "merge", "reason": "token-missing" }`, or empty.                                               |
+| `bot-eligible`            | `true` or `false`.                                                                                                        |
+| `bot-eligibility`         | JSON `{ eligible, reason, prType, updateType }`.                                                                          |
+| `carry-over`              | JSON `{ cleanAncestors, stoppedBecause }` for approval carry-over, or empty when it didn't run.                           |
+| `update`                  | The branch update performed: `update-branch` or `none`.                                                                   |
+| `update-skipped`          | JSON `{ "action": "update-branch", "reason": "token-missing" }`, or empty.                                                |
+| `uat`                     | JSON `{ outcome, label }` for the PR's one UAT label, or empty for a closed PR. A PR needing CI sign-off reports `ci`.    |
+| `sign-off`                | JSON `{ requirement, reason, loosening, status, statusPosted }` for the sign-off status, or empty for a closed PR.        |
+| `sign-off-status-skipped` | JSON `{ "reason": "token-missing" }`, or empty.                                                                           |
 
 Every output but `results` and `token-source` describes a single PR, so it is set
 only when exactly one PR was reconciled. The field meanings are the CLI's; see its
@@ -260,10 +260,12 @@ reference.
   `UAT pending`, `UAT ready`, or `UAT passed` on each open PR. A PR that needs
   UAT shows `UAT pending` until a trusted person signs it off; one that can't be
   user-facing (a `docs`/`test`/`refactor` title, or only statically safe paths)
-  gets `no UAT needed`. See pr-lifecycle's
+  gets `no UAT needed`, and so does a `ci:` PR that needs the CI sign-off
+  (`CI change approved`) instead of UAT. See pr-lifecycle's
   [UAT labels](https://github.com/rmartz/pr-lifecycle/blob/main/docs/uat.md).
-- **`uat: 'off'`** labels every PR `no UAT needed` and posts
-  `requirement=none`, except a `ci:` PR that needs the CI sign-off.
+- **`uat: 'off'`** labels every PR `no UAT needed`. The status says
+  `requirement=none`, except for a `ci:` PR that needs the CI sign-off
+  (`requirement=ci`).
 - **Set it in the caller on the base branch.** The caller runs on
   `pull_request_target`, so GitHub reads the workflow, and with it the `uat`
   value, from the base branch: a PR can't turn UAT off for itself.
