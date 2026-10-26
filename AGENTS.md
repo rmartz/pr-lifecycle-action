@@ -51,8 +51,9 @@ The `repo-hygiene` and `merge-safety` callers are SHA-pinned and
 bumped by Dependabot; CI, the `commit-convention` tripwire, labels,
 `dependabot.yml`, and the squash-merge setting are owned here. The
 [`pr-policy`](.github/workflows/pr-policy.yml) caller runs `rmartz/pr-policy-action`
-(SHA-pinned, Dependabot-bumped) with `skip-uat: true`, since this repo has nothing
-to user-test. Its `title` check validates PR titles (Conventional Commits,
+(SHA-pinned, Dependabot-bumped) with `skip-uat: true`: the repo skips UAT by
+choice (the Action it ships is user-facing, so this is a decision, not a claim
+there's nothing to test). Its `title` check validates PR titles (Conventional Commits,
 breaking-marker and type rules), so there is no separate PR-title-lint workflow.
 The [`pr-lifecycle`](.github/workflows/pr-lifecycle.yml) caller dogfoods this
 repo's own **published** action (SHA-pinned, Dependabot-bumped — never a local
