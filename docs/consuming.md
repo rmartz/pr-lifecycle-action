@@ -86,7 +86,7 @@ jobs:
           # Until they are set, the run reconciles labels only.
           app-client-id: ${{ secrets.PR_LIFECYCLE_CLIENT_ID }}
           app-private-key: ${{ secrets.PR_LIFECYCLE_PRIVATE_KEY }}
-          uat: 'on' # `off` for a repo with nothing to user-test
+          uat: 'on' # `off` for a repo that skips UAT by choice
 ```
 
 Pin the action by full commit SHA and let Dependabot's `github-actions` ecosystem
