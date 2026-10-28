@@ -258,10 +258,14 @@ reference.
 
 - **`uat: 'on'`** (the default) keeps exactly one of `no UAT needed`,
   `UAT pending`, `UAT ready`, or `UAT passed` on each open PR. A PR that needs
-  UAT shows `UAT pending` until a trusted person signs it off; one that can't be
-  user-facing (a `docs`/`test`/`refactor` title, or only statically safe paths)
-  gets `no UAT needed`, and so does a `ci:` PR that needs the CI sign-off
-  (`CI change approved`) instead of UAT. See pr-lifecycle's
+  UAT shows `UAT pending` until a trusted person signs it off. UAT is only for
+  the product's user-facing behavior, and CI and other tooling never is. A PR
+  that can't be user-facing gets `no UAT needed`: a `docs`/`test`/`refactor`
+  title, or one whose every path is statically trivial or CI/tooling (workflows
+  other than a shipped `workflow_call`-only one, `.github/actions/**`, tooling
+  config, top-level `scripts/**`). So does a `ci:` PR that needs the CI sign-off
+  (`CI change approved`) instead of UAT. A CI loosening still needs that
+  sign-off whatever the title. See pr-lifecycle's
   [UAT labels](https://github.com/rmartz/pr-lifecycle/blob/main/docs/uat.md).
 - **`uat: 'off'`** labels every PR `no UAT needed`. The status says
   `requirement=none`, except for a `ci:` PR that needs the CI sign-off
