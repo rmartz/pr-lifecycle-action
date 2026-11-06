@@ -257,11 +257,12 @@ classification rules, and when it is posted are in pr-lifecycle's
 reference.
 
 - **`uat: 'on'`** (the default) keeps exactly one of `no UAT needed`,
-  `UAT pending`, `UAT ready`, or `UAT passed` on each open PR. A PR that needs
-  UAT shows `UAT pending` until a trusted person signs it off; one that can't be
-  user-facing (a `docs`/`test`/`refactor` title, or only statically safe paths)
-  gets `no UAT needed`, and so does a `ci:` PR that needs the CI sign-off
-  (`CI change approved`) instead of UAT. See pr-lifecycle's
+  `UAT pending`, `UAT ready`, or `UAT passed` on each open PR. A bot-eligible PR
+  with no verdict over it gets `no UAT needed`, and so does a CI change, which
+  takes the CI sign-off (`CI change approved`) instead of UAT when it needs one.
+  Any other PR is decided by a trusted person's sign-off or its review's `uat`
+  verdict. With neither, it waits at `UAT pending`, then `UAT ready` once
+  approved. A title or a path no longer exempts a PR. See pr-lifecycle's
   [UAT labels](https://github.com/rmartz/pr-lifecycle/blob/main/docs/uat.md).
 - **`uat: 'off'`** labels every PR `no UAT needed`. The status says
   `requirement=none`, except for a `ci:` PR that needs the CI sign-off
