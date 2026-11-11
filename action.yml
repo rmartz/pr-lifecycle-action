@@ -126,9 +126,9 @@ inputs:
     required: false
     default: 'false'
   node-version:
-    description: 'Node.js version to run the CLI under.'
+    description: 'Node.js version to run the CLI under. Defaults to 26, the current LTS; pass an older version to keep running on it.'
     required: false
-    default: '22'
+    default: '26'
 
 outputs:
   token-source:
